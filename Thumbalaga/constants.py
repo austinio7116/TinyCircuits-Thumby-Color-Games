@@ -148,6 +148,7 @@ COL_CYAN = const(0x07FF)
 COL_GREEN = const(0x07E0)
 COL_MAGENTA = const(0xF81F)  # transparent color
 COL_ORANGE = const(0xFD20)
+COL_TEAL = const(0x07F0)
 COL_DARK_GREY = const(0x4208)
 COL_MID_GREY = const(0x6B4D)
 COL_LIGHT_GREY = const(0x9CF3)
@@ -170,6 +171,9 @@ ST_DYING = const(4)
 ST_STAGE_CLEAR = const(5)
 ST_GAME_OVER = const(6)
 ST_CHALLENGE = const(7)
+ST_RESULTS = const(8)
+ST_INITIALS = const(9)
+ST_SCOREBOARD = const(10)
 
 # Formation sway
 SWAY_SPEED = 10.0

@@ -826,6 +826,9 @@ def handle_player_fire():
         else:
             fired = bullets.fire_player(player.position.x, player.position.y)
         if fired:
+            hud.shots_fired += 1
+            if player.dual_fighter:
+                hud.shots_fired += 1  # dual fires 2 bullets
             play_sfx(shoot_sfx, CH_SHOOT)
 
 
@@ -931,6 +934,7 @@ while True:
             hits = check_player_bullets_vs_enemies(bullets, formation)
             for bi, e in hits:
                 bullets.p_active[bi] = False
+                hud.hits += 1
                 e.hp -= 1
                 if e.hp <= 0:
                     e.start_dying()
@@ -1010,6 +1014,7 @@ while True:
             hits = check_player_bullets_vs_enemies(bullets, formation)
             for bi, e in hits:
                 bullets.p_active[bi] = False
+                hud.hits += 1
                 e.hp -= 1
                 if e.hp <= 0:
                     diving = not e.in_formation
@@ -1102,6 +1107,7 @@ while True:
                     if hit:
                         g, idx = hit
                         bullets.p_active[bi] = False
+                        hud.hits += 1
                         ex = g.enemies[idx][0].position.x
                         ey = g.enemies[idx][0].position.y
                         transforms.kill_enemy(g, idx)
@@ -1144,6 +1150,7 @@ while True:
                         dy = abs(bullets.p_y[bi] - hostile_fighter_y)
                         if dx < PLAYER_HALF_W and dy < PLAYER_HALF_H:
                             bullets.p_active[bi] = False
+                            hud.hits += 1
                             explosions.spawn(hostile_fighter_x, hostile_fighter_y)
                             play_sfx(explode_boss_sfx, CH_EXPLODE)
                             hud.add_score(HOSTILE_FIGHTER_POINTS)
@@ -1228,6 +1235,7 @@ while True:
                     ey = ce.node.position.y
                     if abs(bx - ex) < ENEMY_HALF + 1 and abs(by - ey) < ENEMY_HALF + 2:
                         bullets.p_active[bi] = False
+                        hud.hits += 1
                         ce.alive = False
                         ce.active = False
                         ce.node.opacity = 0.0
@@ -1353,6 +1361,29 @@ while True:
 
             if state_timer <= 0 and engine_io.A.is_just_pressed:
                 hide_all_enemies()
+                state = ST_RESULTS
+                state_timer = 0.5  # brief pause before input
+
+        elif state == ST_RESULTS:
+            state_timer -= dt
+            if state_timer <= 0:
+                state_timer = 0
+            hud.draw_results(fb)
+            if state_timer <= 0 and engine_io.A.is_just_pressed:
+                if hud.is_high_score():
+                    hud.start_initials()
+                    state = ST_INITIALS
+                else:
+                    state = ST_SCOREBOARD
+
+        elif state == ST_INITIALS:
+            done = hud.draw_initials(fb, dt)
+            if done:
+                state = ST_SCOREBOARD
+
+        elif state == ST_SCOREBOARD:
+            hud.draw_scoreboard(fb)
+            if engine_io.A.is_just_pressed:
                 state = ST_TITLE
 
         # ── Update hostile fighter entry (flying in from previous stage) ──
