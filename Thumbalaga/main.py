@@ -893,7 +893,7 @@ while True:
                 if level.is_challenge_stage():
                     # Challenge stage: enemies fly through, no formation
                     hide_all_enemies()
-                    challenge_state.init(enemy_nodes)
+                    challenge_state.init(enemy_nodes, hud.stage)
                     bullets.clear_all()
                     state = ST_CHALLENGE
                 else:
