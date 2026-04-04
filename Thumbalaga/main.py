@@ -106,7 +106,6 @@ beam_capture_sfx = load_sfx("assets/beam_capture.wav")    # beam with capture
 die_sfx = load_sfx("assets/player_die.wav")
 dive_sfx = load_sfx("assets/dive.wav")
 beam_sfx = load_sfx("assets/beam.wav")
-capture_sfx = load_sfx("assets/capture.wav")
 transform_sfx = load_sfx("assets/transform.wav")
 extra_life_sfx = load_sfx("assets/extra_life.wav")
 rescue_sfx = load_sfx("assets/rescue.wav")
@@ -605,12 +604,13 @@ def update_beam(dt, player_obj, formation_obj):
         captured_ship_node.rotation = t * 6.28 * 2  # two full rotations
 
         if t >= 1.0:
-            # Ship is now held by boss
+            # Ship is now held by boss — flies back to formation
             captured_ship_node.rotation = 0
             capture_player_ship(beam_boss)
             beam_phase = BEAM_PHASE_RETURN
             beam_timer = 0.0
             beam_reveal = 0.0
+            play_sfx(rescue_sfx, CH_MUSIC)
 
     elif beam_phase == BEAM_PHASE_RETRACT:
         # No capture — beam shrinks back (~0.5 seconds)
@@ -1010,7 +1010,7 @@ while True:
             if beam_phase != BEAM_PHASE_INACTIVE:
                 result = update_beam(dt, player, formation)
                 if result == 'caught':
-                    play_sfx(capture_sfx, CH_PLAYER_DIE)
+                    play_sfx(beam_capture_sfx, CH_PLAYER_DIE)
                     # Player caught — enter dying state (capture animation runs in beam)
                     state = ST_DYING
                     state_timer = 2.5  # longer to allow capture animation
