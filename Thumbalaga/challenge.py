@@ -257,29 +257,62 @@ def update_challenge(challenge, dt):
         ce.node.position.x = px
         ce.node.position.y = py
 
-        # Rotation animation — face direction of travel
+        # Animation
         dx = px - ce._last_x
+        dy = py - getattr(ce, '_last_y', py)
         ce._last_x = px
+        ce._last_y = py
 
+        # Satellite spins through 3 frames regardless of direction
+        if ce._etype == ENEMY_SATELLITE:
+            ce.node.frame_current_x = int(enemy_t * 6) % 3
+            ce.node.scale.x = 1.0
+            continue
+
+        # Direction-based rotation for other types
+        # Frames: 0=left(180°), 1=165°, 2=150°, 3=135°, 4=120°, 5=105°, 6=down(90°)
+        # scale.x=-1 mirrors for rightward movement
         max_frame = ENEMY_FRAME_COUNT[ce._etype] if ce._etype < len(ENEMY_FRAME_COUNT) else 8
         ia, ib = get_idle_frames(ce._etype)
 
         adx = abs(dx)
-        if adx > 2:
-            frame = 0
-        elif adx > 0.8:
-            frame = min(2, max_frame - 1)
-        elif adx > 0.3:
-            frame = min(4, max_frame - 1)
-        else:
-            frame = ia  # facing down when moving mostly vertically
+        ady = abs(dy)
 
-        if dx < -0.3:
+        if adx < 0.2 and ady < 0.2:
+            ce.node.frame_current_x = ia
+            continue
+
+        if ady > 0.01:
+            ratio = adx / ady
+        else:
+            ratio = 99.0
+
+        if ratio < 0.13:
+            frame = min(6, max_frame - 1)
+        elif ratio < 0.41:
+            frame = min(5, max_frame - 1)
+        elif ratio < 0.77:
+            frame = min(4, max_frame - 1)
+        elif ratio < 1.33:
+            frame = min(3, max_frame - 1)
+        elif ratio < 2.5:
+            frame = min(2, max_frame - 1)
+        elif ratio < 5.0:
+            frame = min(1, max_frame - 1)
+        else:
+            frame = 0
+
+        if dx < -0.2:
             ce.node.scale.x = -1.0
-        elif dx > 0.3:
+        elif dx > 0.2:
             ce.node.scale.x = 1.0
 
-        ce.node.frame_current_x = min(frame, max_frame - 1)
+        if dy < -0.2:
+            ce.node.scale.y = -1.0
+        elif dy > 0.2:
+            ce.node.scale.y = 1.0
+
+        ce.node.frame_current_x = frame
 
     challenge.all_done = all_finished
     return all_finished

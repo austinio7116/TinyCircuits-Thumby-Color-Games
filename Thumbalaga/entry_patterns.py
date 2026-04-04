@@ -355,9 +355,9 @@ def update_entry(entry_state, formation, dt, entry_speed=1.0, dive_fn=None):
             t = enemy_time / ENTRY_DURATION
 
             # Check if this enemy should break into a dive mid-entry
-            # Only dive if enemy is above y=-10 (high enough to give player time)
+            # Only dive if enemy is in upper portion of screen (y < 20)
             if dive_at > 0 and i >= dive_start_idx and t >= dive_at \
-               and e.node.position.y < -10 and dive_fn:
+               and e.node.position.y < 20 and dive_fn:
                 e.entry_done = True
                 dive_fn(e)
                 continue

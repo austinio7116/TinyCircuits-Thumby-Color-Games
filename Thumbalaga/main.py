@@ -677,9 +677,15 @@ _idle_timer = 0.0
 _idle_frame = False  # toggles between IDLE_FRAME_A and IDLE_FRAME_B
 
 
+_last_ey = {}  # track last Y for each enemy for direction calc
+
+
 @micropython.native
 def update_enemy_frames(formation, dt):
-    """Update sprite frames: idle animation for formation, direction for divers."""
+    """Update sprite frames: idle animation for formation, direction-based for moving.
+    Sprite frames: 0=left(180°), 1=165°, 2=150°, 3=135°, 4=120°, 5=105°, 6=down(90°)
+    scale.x=-1 mirrors for right-side angles.
+    """
     global _idle_timer, _idle_frame
     _idle_timer += dt
     if _idle_timer >= 1.0 / IDLE_ANIM_FPS:
@@ -697,31 +703,77 @@ def update_enemy_frames(formation, dt):
         idle_fx = ib if _idle_frame else ia
         max_frame = ENEMY_FRAME_COUNT[e._orig_type] if e._orig_type < len(ENEMY_FRAME_COUNT) else 8
 
+        if e._orig_type == ENEMY_SATELLITE:
+            # Satellite spins through 3 frames regardless of direction
+            e.node.frame_current_x = int(_idle_timer * 6) % 3
+            e.node.scale.x = 1.0
+            continue
+
         if e.in_formation:
             e.node.frame_current_x = idle_fx
             e.node.scale.x = 1.0
+            e.node.scale.y = 1.0
         elif e.node.opacity > 0:
             nx = e.node.position.x
-            last = e._last_x if hasattr(e, '_last_x') else nx
-            dx = nx - last
+            ny = e.node.position.y
+            eid = id(e)
+            last_x = e._last_x
+            last_y = _last_ey.get(eid, ny)
+            dx = nx - last_x
+            dy = ny - last_y
             e._last_x = nx
+            _last_ey[eid] = ny
 
             adx = abs(dx)
-            if adx > 2:
-                frame = 0
-            elif adx > 0.8:
-                frame = min(2, max_frame - 1)
-            elif adx > 0.3:
-                frame = min(4, max_frame - 1)
-            else:
-                frame = idle_fx
+            ady = abs(dy)
 
-            if dx < -0.3:
+            if adx < 0.2 and ady < 0.2:
+                # Barely moving — use idle
+                e.node.frame_current_x = idle_fx
+                continue
+
+            # Compute angle from vertical (down = 0°, left = 90°)
+            # Frame 0 = facing left (90° from down)
+            # Frame 6 = facing down (0° from down)
+            # Each frame = 15° step
+            # angle_from_down = atan2(adx, ady) in degrees
+            # frame = 6 - round(angle_from_down / 15)
+            if ady > 0.01:
+                ratio = adx / ady
+            else:
+                ratio = 99.0  # mostly horizontal
+
+            # Map ratio to frame (tan of angle from vertical)
+            # tan(0°)=0, tan(15°)=0.27, tan(30°)=0.58, tan(45°)=1.0,
+            # tan(60°)=1.73, tan(75°)=3.73, tan(90°)=inf
+            if ratio < 0.13:    # ~0-7° from down
+                frame = min(6, max_frame - 1)  # facing down
+            elif ratio < 0.41:  # ~8-22°
+                frame = min(5, max_frame - 1)
+            elif ratio < 0.77:  # ~23-37°
+                frame = min(4, max_frame - 1)
+            elif ratio < 1.33:  # ~38-52°
+                frame = min(3, max_frame - 1)
+            elif ratio < 2.5:   # ~53-67°
+                frame = min(2, max_frame - 1)
+            elif ratio < 5.0:   # ~68-78°
+                frame = min(1, max_frame - 1)
+            else:               # ~79-90° = nearly horizontal
+                frame = 0
+
+            # Mirror horizontally for rightward movement
+            if dx < -0.2:
                 e.node.scale.x = -1.0
-            elif dx > 0.3:
+            elif dx > 0.2:
                 e.node.scale.x = 1.0
 
-            e.node.frame_current_x = min(frame, max_frame - 1)
+            # Flip vertically when flying upward
+            if dy < -0.2:
+                e.node.scale.y = -1.0
+            elif dy > 0.2:
+                e.node.scale.y = 1.0
+
+            e.node.frame_current_x = frame
 
 
 # ── Game state ──────────────────────────────────────────────
@@ -924,6 +976,14 @@ while True:
                             dive_fn=_entry_dive):
                 state = ST_PLAYING
                 formation.dive_timer = level.dive_interval
+
+            # Update any enemies that broke from entry into a dive
+            for e in formation.enemies:
+                if e is not None and e.alive and e.entry_done \
+                   and not e.in_formation and e.dive_path is not None:
+                    done = update_diving_enemy(e, dt, level.dive_speed, formation)
+                    if not done:
+                        maybe_enemy_fire(e, bullets, level, player.position.x)
 
             # Player can shoot during entry
             player.update(dt, engine_io.LEFT.is_pressed,
