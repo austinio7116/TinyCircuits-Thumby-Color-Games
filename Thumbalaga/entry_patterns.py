@@ -6,48 +6,55 @@ from constants import *
 
 # ── Paths from top of screen ──
 # Full Galaga entry loops: sweep in from top, curve through, loop back.
-# Y compressed 0.55x for square aspect ratio (original is portrait 224x288).
+# Approach compressed aggressively, loop portion kept round (0.75x width, 0.55x height).
+# 17 waypoints each for smooth curves.
 
 # Path 0: enter top-left, sweep right, loop back left
 PATH_TL = [
-    (-34, -80), (-34, -30), (-34, -3), (-31, 4), (-21, 9),
-    (-9, 14), (3, 19), (7, 26), (-4, 30),
-    (-19, 28), (-28, 22), (-42, 24), (-65, 23), (-51, 15),
+    (-34, -80), (-34, -2), (-32, 2), (-27, 5), (-19, 8),
+    (-9, 10), (-1, 13), (5, 22), (5, 26), (-2, 30),
+    (-10, 29), (-16, 25), (-21, 22), (-30, 23),
+    (-41, 26), (-49, 20), (-39, 15),
 ]
 
 # Path 0 mirrored: enter top-right, sweep left, loop back right
 PATH_TR = [
-    (34, -80), (34, -30), (34, -3), (31, 4), (21, 9),
-    (9, 14), (-3, 19), (-7, 26), (4, 30),
-    (19, 28), (28, 22), (42, 24), (65, 23), (51, 15),
+    (34, -80), (34, -2), (32, 2), (27, 5), (19, 8),
+    (9, 10), (1, 13), (-5, 22), (-5, 26), (2, 30),
+    (10, 29), (16, 25), (21, 22), (30, 23),
+    (41, 26), (49, 20), (39, 15),
 ]
 
 # Path 2: enter top-left wider, sweep right, loop back
 PATH_TL_WIDE = [
-    (-39, -80), (-39, -30), (-39, -3), (-36, 4), (-27, 10),
-    (-16, 14), (-5, 18), (6, 22), (10, 28),
-    (0, 32), (-13, 31), (-26, 30), (-41, 31), (-40, 24),
+    (-39, -80), (-39, -2), (-37, 2), (-32, 5), (-25, 8),
+    (-16, 10), (-8, 13), (0, 14), (5, 23), (7, 27),
+    (4, 31), (-3, 33), (-10, 31), (-18, 30),
+    (-25, 31), (-33, 29), (-30, 24),
 ]
 
 # Path 2 mirrored
 PATH_TR_WIDE = [
-    (39, -80), (39, -30), (39, -3), (36, 4), (27, 10),
-    (16, 14), (5, 18), (-6, 22), (-10, 28),
-    (0, 32), (13, 31), (26, 30), (41, 31), (40, 24),
+    (39, -80), (39, -2), (37, 2), (32, 5), (25, 8),
+    (16, 10), (8, 13), (0, 14), (-5, 23), (-7, 27),
+    (-4, 31), (3, 33), (10, 31), (18, 30),
+    (25, 31), (33, 29), (30, 24),
 ]
 
 # Path 4: enter top-left, deeper sweep, loop back
 PATH_TL_DEEP = [
-    (-34, -80), (-34, -30), (-34, -3), (-32, 3), (-25, 8),
-    (-14, 12), (-4, 15), (7, 19), (14, 28),
-    (1, 36), (-19, 36), (-33, 33), (-51, 32), (-46, 24),
+    (-34, -80), (-34, -2), (-33, 1), (-29, 4), (-23, 6),
+    (-15, 8), (-8, 10), (0, 12), (7, 20), (11, 27),
+    (7, 33), (-4, 37), (-15, 35), (-23, 33),
+    (-31, 34), (-40, 30), (-34, 24),
 ]
 
 # Path 4 mirrored
 PATH_TR_DEEP = [
-    (34, -80), (34, -30), (34, -3), (32, 3), (25, 8),
-    (14, 12), (4, 15), (-7, 19), (-14, 28),
-    (-1, 36), (19, 36), (33, 33), (51, 32), (46, 24),
+    (34, -80), (34, -2), (33, 1), (29, 4), (23, 6),
+    (15, 8), (8, 10), (0, 12), (-7, 20), (-11, 27),
+    (-7, 33), (4, 37), (15, 35), (23, 33),
+    (31, 34), (40, 30), (34, 24),
 ]
 
 # ── Paths from sides (start off-screen at x=+/-80) ──
@@ -117,24 +124,36 @@ PATH_SR_LOW = [
 def get_entry_pattern(stage):
     """Return entry groups for the given stage.
     Original Galaga has 2 base patterns: odd stages = trailing, even = all-split.
-    Later stages add transient enemies (not implemented yet).
+    Stages 3+ add transient enemies that dive during entry.
     """
     if stage % 2 == 1:
-        return _pattern_trailing()
+        pattern = _pattern_trailing()
     else:
-        return _pattern_split()
+        pattern = _pattern_split()
+
+    # Stages 3+: last 2 enemies in waves 1, 4, 5 break into dives mid-entry
+    if stage >= 3:
+        dive_count = min(2, (stage - 1) // 2)  # 1 at stage 3-4, 2 at stage 5+
+        for i, group in enumerate(pattern):
+            # Apply to first wave (i=0,1) and last two waves
+            wave_idx = group['delay']
+            if wave_idx == 0.0 or wave_idx >= 4.0:
+                group['dive_at'] = 0.6    # break at 60% through entry path
+                group['dive_count'] = dive_count
+
+    return pattern
 
 
 def _pattern_trailing():
     """Odd stages (1, 3, 5, ...) — matches original Galaga stage 1/3.
-    Wave 1: SPLIT from top — butterflies left, bees right (simultaneous)
+    Wave 1: SIDE-BY-SIDE from top — butterflies + bees in parallel columns
     Wave 2: TRAILING from left side — 8 in single file (bosses + butterflies)
     Wave 3: TRAILING from right side — 8 in single file (outer butterflies)
     Wave 4: TRAILING from top-right — 8 in single file (bees)
     Wave 5: TRAILING from top-left — 4 in single file (remaining bees)
     """
     return [
-        # Wave 1 (split): center butterflies from top-left + center bees from top-right
+        # Wave 1 (split): butterflies from top-left, bees from top-right
         {
             'delay': 0.0,
             'path': PATH_TL,
@@ -191,7 +210,7 @@ def _pattern_split():
     Wave 5: SPLIT from top — remaining bees
     """
     return [
-        # Wave 1 (split): center butterflies + center bees from top (wide offset)
+        # Wave 1 (split): butterflies from top-left, bees from top-right (wider paths)
         {
             'delay': 0.0,
             'path': PATH_TL_DEEP,
@@ -204,18 +223,21 @@ def _pattern_split():
             'slots': [(2, 3), (3, 3), (4, 3), (5, 3)],
             'spacing': 0.20,
         },
-        # Wave 2 (split): bosses + butterflies alternating from each side
+        # Wave 2 (side-by-side from left): bosses + butterflies in parallel
+        # Original uses two paths from the same side (path 3 + path 5, both left)
         {
             'delay': 1.2,
             'path': PATH_SL,
-            'slots': [(2, 0), (2, 2), (3, 0), (3, 2)],
+            'slots': [(2, 0), (3, 0), (4, 0), (5, 0)],
             'spacing': 0.18,
+            'offset_x': -6,
         },
         {
             'delay': 1.2,
-            'path': PATH_SR_LOW,
-            'slots': [(4, 0), (4, 2), (5, 0), (5, 2)],
+            'path': PATH_SL_LOW,
+            'slots': [(2, 2), (3, 2), (4, 2), (5, 2)],
             'spacing': 0.18,
+            'offset_x': 6,
         },
         # Wave 3 (split): outer butterflies from sides
         {
@@ -291,8 +313,10 @@ def interpolate_path(path, t):
 
 
 @micropython.native
-def update_entry(entry_state, formation, dt, entry_speed=1.0):
-    """Update entry animation. Returns True when all enemies are in formation."""
+def update_entry(entry_state, formation, dt, entry_speed=1.0, dive_fn=None):
+    """Update entry animation. Returns True when all enemies are in formation.
+    dive_fn: optional callback(enemy) to make an enemy break into a dive mid-entry.
+    """
     entry_state.time += dt * entry_speed
     all_done = True
 
@@ -304,6 +328,11 @@ def update_entry(entry_state, formation, dt, entry_speed=1.0):
 
         path = group['path']
         spacing = group['spacing']
+        # dive_at: if set, last N enemies in this group break into a dive
+        # at this t value instead of going to formation (transient enemies)
+        dive_at = group.get('dive_at', 0)
+        dive_count = group.get('dive_count', 0)
+        dive_start_idx = len(group['slots']) - dive_count
 
         for i, (col, row) in enumerate(group['slots']):
             idx = row * FORM_COLS + col
@@ -314,6 +343,9 @@ def update_entry(entry_state, formation, dt, entry_speed=1.0):
             if e.entry_done and e.in_formation:
                 continue  # already settled
 
+            if e.entry_done and not e.in_formation:
+                continue  # broke into a dive
+
             all_done = False
 
             enemy_time = entry_state.time - group_delay - i * spacing
@@ -323,7 +355,17 @@ def update_entry(entry_state, formation, dt, entry_speed=1.0):
             if e.node.opacity < 0.5:
                 e.node.opacity = 1.0
 
+            # Horizontal offset for side-by-side entry (0 if not specified)
+            ox = group.get('offset_x', 0)
+
             t = enemy_time / ENTRY_DURATION
+
+            # Check if this enemy should break into a dive mid-entry
+            if dive_at > 0 and i >= dive_start_idx and t >= dive_at and dive_fn:
+                e.entry_done = True
+                dive_fn(e)
+                continue
+
             if t >= 1.0:
                 # Path traversal done — lerp to formation slot
                 lerp_t = (enemy_time - ENTRY_DURATION) / ENTRY_LERP_DURATION
@@ -338,12 +380,12 @@ def update_entry(entry_state, formation, dt, entry_speed=1.0):
                     # Lerp from path end to formation slot
                     end_x, end_y = path[-1]
                     slot_x, slot_y = formation.get_slot_screen_pos(col, row)
-                    e.node.position.x = end_x + (slot_x - end_x) * lerp_t
+                    e.node.position.x = (end_x + ox) + (slot_x - end_x - ox) * lerp_t
                     e.node.position.y = end_y + (slot_y - end_y) * lerp_t
             else:
                 # Still on entry path
                 px, py = interpolate_path(path, t)
-                e.node.position.x = px
+                e.node.position.x = px + ox
                 e.node.position.y = py
 
     return all_done

@@ -909,7 +909,13 @@ while True:
             formation.update(dt)
             update_enemy_frames(formation, dt)
 
-            if update_entry(entry_state, formation, dt, level.entry_speed):
+            def _entry_dive(e):
+                """Callback: enemy breaks from entry into a dive."""
+                e.in_formation = False
+                start_dive(e)
+
+            if update_entry(entry_state, formation, dt, level.entry_speed,
+                            dive_fn=_entry_dive):
                 state = ST_PLAYING
                 formation.dive_timer = level.dive_interval
 
