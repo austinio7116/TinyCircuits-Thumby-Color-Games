@@ -86,14 +86,16 @@ class HUD:
         engine_draw.text(None, self._score_str, None, 2, 1, 1, 0, 1.0)
         engine_draw.text(None, "HI" + self._hi_str, None, 80, 1, 1, 0, 0.6)
 
-        # Lives at bottom-left
+        # Lives at bottom-left (show remaining lives, not counting current ship)
+        # Uses 6x6 life_icon.bmp, touching bottom of screen
+        show_lives = max(0, self.lives - 1)
         if self.life_tex:
-            for i in range(self.lives):
-                engine_draw.blit(self.life_tex, 3 + i * 8, 121,
+            for i in range(show_lives):
+                engine_draw.blit(self.life_tex, 2 + i * 8, 122,
                                  Color(COL_MAGENTA), 1.0)
         else:
-            for i in range(self.lives):
-                fb.rect(3 + i * 8, 122, 5, 5, COL_CYAN, True)
+            for i in range(show_lives):
+                fb.rect(2 + i * 8, 122, 6, 6, COL_WHITE, True)
 
         # Stage badges at bottom-right
         self._draw_stage_badges(fb)
@@ -136,7 +138,7 @@ class HUD:
             x -= bw + 1
             if x < 50:
                 break  # don't overflow into lives area
-            fb.blit(badge_fb, x, 120, COL_MAGENTA)
+            fb.blit(badge_fb, x, 117, COL_MAGENTA)
 
     def draw_centered_text(self, text, screen_y):
         x = max(0, 64 - len(text) * 3)

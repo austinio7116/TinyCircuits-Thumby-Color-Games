@@ -132,7 +132,7 @@ def get_entry_pattern(stage):
             # Apply to first wave (i=0,1) and last two waves
             wave_idx = group['delay']
             if wave_idx == 0.0 or wave_idx >= 4.0:
-                group['dive_at'] = 0.6    # break at 60% through entry path
+                group['dive_at'] = 0.35   # break early in entry (while still high)
                 group['dive_count'] = dive_count
 
     return pattern
@@ -355,7 +355,9 @@ def update_entry(entry_state, formation, dt, entry_speed=1.0, dive_fn=None):
             t = enemy_time / ENTRY_DURATION
 
             # Check if this enemy should break into a dive mid-entry
-            if dive_at > 0 and i >= dive_start_idx and t >= dive_at and dive_fn:
+            # Only dive if enemy is above y=-10 (high enough to give player time)
+            if dive_at > 0 and i >= dive_start_idx and t >= dive_at \
+               and e.node.position.y < -10 and dive_fn:
                 e.entry_done = True
                 dive_fn(e)
                 continue

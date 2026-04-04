@@ -106,7 +106,7 @@ def start_dive(enemy, formation=None, beam_active=False):
     is_boss = enemy.type == ENEMY_BOSS or enemy.type == ENEMY_BOSS_HIT
     if is_boss and formation:
         # Boss decides before diving: tractor beam (solo) or escorts (no beam)
-        if not beam_active and random.random() < 0.25:
+        if not beam_active and random.random() < 0.5:
             enemy.will_beam = True
 
     # Must set dive_path AFTER will_beam is decided

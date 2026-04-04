@@ -8,7 +8,7 @@ FORM_ROWS = const(5)
 FORM_SPACING_X = const(14)
 FORM_SPACING_Y = const(13)
 # Formation top-left origin (camera coords: -64 to +64)
-FORM_ORIGIN_X = -42           # left edge of formation
+FORM_ORIGIN_X = -49           # left edge of formation (centered)
 FORM_ORIGIN_Y = -46           # top row, below HUD area
 
 # Enemy types (match sprite sheet row order in enemies.bmp)

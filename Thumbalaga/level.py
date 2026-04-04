@@ -49,7 +49,7 @@ class LevelData:
         self.max_divers = [2, 3, 4, 6][tier]
 
         # Entry fly-in speed
-        self.entry_speed = [1.2, 1.4, 1.6, 1.8][tier]
+        self.entry_speed = [0.8, 1.0, 1.2, 1.4][tier]
 
         # Enemy bullet speed
         self.enemy_bullet_speed = [65, 80, 95, 110][tier]
