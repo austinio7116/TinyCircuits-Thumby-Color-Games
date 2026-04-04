@@ -1,179 +1,259 @@
 from constants import *
 
-# Entry paths: sequences of (x, y) screen coordinates that enemies fly through
-# before reaching their formation slot. Each path defines an approach route.
+# Entry paths: sequences of (x, y) camera coordinates enemies fly through
+# before reaching their formation slot. Generated from Galaga Z80 disassembly
+# (hackbar/galaga), scaled for 128x128 screen from original 224x288.
 
-# Entry paths use camera coordinates (-64 to +64)
+# ── Paths from top of screen ──
+# Full Galaga entry loops: sweep in from top, curve through, loop back.
+# Y compressed 0.55x for square aspect ratio (original is portrait 224x288).
 
-# From top-left, curving to center
-PATH_TOP_LEFT = [
-    (-74, -74),
-    (-44, -49),
-    (-19, -29),
-    (0, -14),
+# Path 0: enter top-left, sweep right, loop back left
+PATH_TL = [
+    (-34, -80), (-34, -30), (-34, -3), (-31, 4), (-21, 9),
+    (-9, 14), (3, 19), (7, 26), (-4, 30),
+    (-19, 28), (-28, 22), (-42, 24), (-65, 23), (-51, 15),
 ]
 
-# From top-right, curving to center
-PATH_TOP_RIGHT = [
-    (74, -74),
-    (44, -49),
-    (19, -29),
-    (0, -14),
+# Path 0 mirrored: enter top-right, sweep left, loop back right
+PATH_TR = [
+    (34, -80), (34, -30), (34, -3), (31, 4), (21, 9),
+    (9, 14), (-3, 19), (-7, 26), (4, 30),
+    (19, 28), (28, 22), (42, 24), (65, 23), (51, 15),
 ]
 
-# From bottom-left, looping up
-PATH_BOTTOM_LEFT = [
-    (-74, 36),
-    (-44, 16),
-    (-34, -14),
-    (-14, -34),
-    (0, -19),
+# Path 2: enter top-left wider, sweep right, loop back
+PATH_TL_WIDE = [
+    (-39, -80), (-39, -30), (-39, -3), (-36, 4), (-27, 10),
+    (-16, 14), (-5, 18), (6, 22), (10, 28),
+    (0, 32), (-13, 31), (-26, 30), (-41, 31), (-40, 24),
 ]
 
-# From bottom-right, looping up
-PATH_BOTTOM_RIGHT = [
-    (74, 36),
-    (44, 16),
-    (34, -14),
-    (14, -34),
-    (0, -19),
+# Path 2 mirrored
+PATH_TR_WIDE = [
+    (39, -80), (39, -30), (39, -3), (36, 4), (27, 10),
+    (16, 14), (5, 18), (-6, 22), (-10, 28),
+    (0, 32), (13, 31), (26, 30), (41, 31), (40, 24),
 ]
 
-# Straight down from top
-PATH_TOP_CENTER = [
-    (0, -74),
-    (0, -44),
-    (0, -19),
+# Path 4: enter top-left, deeper sweep, loop back
+PATH_TL_DEEP = [
+    (-34, -80), (-34, -30), (-34, -3), (-32, 3), (-25, 8),
+    (-14, 12), (-4, 15), (7, 19), (14, 28),
+    (1, 36), (-19, 36), (-33, 33), (-51, 32), (-46, 24),
 ]
 
-# Entry wave definition:
-# Each group: (delay_seconds, path, [(col, row), ...], spacing_between_enemies)
-# spacing: time delay between successive enemies in the group
+# Path 4 mirrored
+PATH_TR_DEEP = [
+    (34, -80), (34, -30), (34, -3), (32, 3), (25, 8),
+    (14, 12), (4, 15), (-7, 19), (-14, 28),
+    (-1, 36), (19, 36), (33, 33), (51, 32), (46, 24),
+]
+
+# ── Paths from sides (start off-screen at x=+/-80) ──
+
+# Path 1: from left side, looping up to formation
+PATH_SL = [
+    (-80, 48), (-64, 47), (-50, 44), (-37, 39), (-25, 31),
+    (-18, 22), (-18, 10), (-32, 6), (-26, 14), (-17, 13),
+]
+
+# Path 1 mirrored: from right side
+PATH_SR = [
+    (80, 48), (64, 47), (50, 44), (37, 39), (25, 31),
+    (18, 22), (18, 10), (32, 6), (26, 14), (17, 13),
+]
+
+# Path 3: from left, tighter loop
+PATH_SL_TIGHT = [
+    (-80, 48), (-64, 47), (-50, 45), (-35, 42), (-19, 37),
+    (-7, 27), (-3, 14), (-22, 4), (-20, 18), (-3, 19),
+]
+
+# Path 3 mirrored
+PATH_SR_TIGHT = [
+    (80, 48), (64, 47), (50, 45), (35, 42), (19, 37),
+    (7, 27), (3, 14), (22, 4), (20, 18), (3, 19),
+]
+
+# Path 5: from left side, low entry
+PATH_SL_LOW = [
+    (-80, 45), (-64, 44), (-50, 42), (-36, 39), (-22, 35),
+    (-13, 27), (-11, 15), (-23, 12), (-20, 21), (-9, 20),
+]
+
+# Path 5 mirrored
+PATH_SR_LOW = [
+    (80, 45), (64, 44), (50, 42), (36, 39), (22, 35),
+    (13, 27), (11, 15), (23, 12), (20, 21), (9, 20),
+]
+
+
+# ============================================================
+# Wave definitions: match original Galaga entry order
+# ============================================================
+#
+# Original Galaga (5 waves of 8, total 40):
+#   Wave 1: 4 center butterflies + 4 center bees (simultaneous, split)
+#   Wave 2: 4 bosses + 4 outer butterflies
+#   Wave 3: 8 remaining butterflies
+#   Wave 4: 8 bees (inner)
+#   Wave 5: 8 bees (outer)
+#
+# Our formation (8 cols x 5 rows, total 36):
+#   Row 0: Bosses (cols 2-5 only, 4 total)
+#   Row 1: Butterflies (8)
+#   Row 2: Butterflies (8)
+#   Row 3: Bees (8)
+#   Row 4: Bees (8)
+#
+# Mapping to match original wave composition:
+#   Wave 1 (8): 4 center butterflies (r1 c2-5) + 4 center bees (r3 c2-5)
+#   Wave 2 (8): 4 bosses (r0 c2-5) + 4 center butterflies (r2 c2-5)
+#   Wave 3 (8): outer butterflies (r1 c0,1,6,7 + r2 c0,1,6,7)
+#   Wave 4 (8): bees (r3 c0,1,6,7 + r4 c2,3,4,5)
+#   Wave 5 (4): remaining bees (r4 c0,1,6,7)
 
 def get_entry_pattern(stage):
-    """Return entry groups for the given stage."""
-    # Alternate between two base patterns, speed increases with stage
+    """Return entry groups for the given stage.
+    Original Galaga has 2 base patterns: odd stages = trailing, even = all-split.
+    Later stages add transient enemies (not implemented yet).
+    """
     if stage % 2 == 1:
-        return _pattern_a()
+        return _pattern_trailing()
     else:
-        return _pattern_b()
+        return _pattern_split()
 
 
-def _pattern_a():
-    """Pattern A: enemies enter from top-left and top-right alternately."""
+def _pattern_trailing():
+    """Odd stages (1, 3, 5, ...) — matches original Galaga stage 1/3.
+    Wave 1: SPLIT from top — butterflies left, bees right (simultaneous)
+    Wave 2: TRAILING from left side — 8 in single file (bosses + butterflies)
+    Wave 3: TRAILING from right side — 8 in single file (outer butterflies)
+    Wave 4: TRAILING from top-right — 8 in single file (bees)
+    Wave 5: TRAILING from top-left — 4 in single file (remaining bees)
+    """
     return [
-        # Bottom row left half - from top-left
+        # Wave 1 (split): center butterflies from top-left + center bees from top-right
         {
             'delay': 0.0,
-            'path': PATH_TOP_LEFT,
-            'slots': [(0, 4), (1, 4), (2, 4), (3, 4)],
+            'path': PATH_TL,
+            'slots': [(2, 1), (3, 1), (4, 1), (5, 1)],
             'spacing': 0.20,
         },
-        # Bottom row right half - from top-right
         {
-            'delay': 0.8,
-            'path': PATH_TOP_RIGHT,
-            'slots': [(4, 4), (5, 4), (6, 4), (7, 4)],
+            'delay': 0.0,
+            'path': PATH_TR,
+            'slots': [(2, 3), (3, 3), (4, 3), (5, 3)],
             'spacing': 0.20,
         },
-        # Row 3 left - from top-right
+        # Wave 2 (trailing): bosses + butterflies ALTERNATING, single file from left side
         {
-            'delay': 1.6,
-            'path': PATH_TOP_RIGHT,
-            'slots': [(0, 3), (1, 3), (2, 3), (3, 3)],
-            'spacing': 0.20,
-        },
-        # Row 3 right - from top-left
-        {
-            'delay': 2.4,
-            'path': PATH_TOP_LEFT,
-            'slots': [(4, 3), (5, 3), (6, 3), (7, 3)],
-            'spacing': 0.20,
-        },
-        # Row 2 - from bottom-left
-        {
-            'delay': 3.2,
-            'path': PATH_BOTTOM_LEFT,
-            'slots': [(0, 2), (1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2), (7, 2)],
+            'delay': 1.2,
+            'path': PATH_SL,
+            'slots': [(2, 0), (2, 2), (3, 0), (3, 2),
+                       (4, 0), (4, 2), (5, 0), (5, 2)],
             'spacing': 0.18,
         },
-        # Row 1 - from bottom-right
+        # Wave 3 (trailing): outer butterflies, single file from right side
+        {
+            'delay': 2.8,
+            'path': PATH_SR,
+            'slots': [(0, 1), (1, 1), (6, 1), (7, 1),
+                       (0, 2), (1, 2), (6, 2), (7, 2)],
+            'spacing': 0.18,
+        },
+        # Wave 4 (trailing): bees, single file from top-right
         {
             'delay': 4.2,
-            'path': PATH_BOTTOM_RIGHT,
-            'slots': [(0, 1), (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 1), (7, 1)],
+            'path': PATH_TR_WIDE,
+            'slots': [(0, 3), (1, 3), (6, 3), (7, 3),
+                       (2, 4), (3, 4), (4, 4), (5, 4)],
             'spacing': 0.18,
         },
-        # Bosses - from top center
+        # Wave 5 (trailing): remaining bees, single file from top-left
         {
-            'delay': 5.2,
-            'path': PATH_TOP_CENTER,
-            'slots': [(2, 0), (3, 0), (4, 0), (5, 0)],
-            'spacing': 0.15,
+            'delay': 5.6,
+            'path': PATH_TL_WIDE,
+            'slots': [(0, 4), (1, 4), (6, 4), (7, 4)],
+            'spacing': 0.18,
         },
     ]
 
 
-def _pattern_b():
-    """Pattern B: enemies enter from sides in a pincer formation."""
+def _pattern_split():
+    """Even stages (2, 4, 6, ...) — matches original Galaga stage 2/4.
+    All 5 waves are SPLIT (simultaneous from two directions).
+    Wave 1: SPLIT from top (wide) — butterflies + bees
+    Wave 2: SPLIT from sides — bosses + butterflies
+    Wave 3: SPLIT from sides — outer butterflies
+    Wave 4: SPLIT from top — bees
+    Wave 5: SPLIT from top — remaining bees
+    """
     return [
-        # Row 4 - simultaneous from both sides
+        # Wave 1 (split): center butterflies + center bees from top (wide offset)
         {
             'delay': 0.0,
-            'path': PATH_BOTTOM_LEFT,
-            'slots': [(0, 4), (1, 4), (2, 4), (3, 4)],
-            'spacing': 0.18,
+            'path': PATH_TL_DEEP,
+            'slots': [(2, 1), (3, 1), (4, 1), (5, 1)],
+            'spacing': 0.20,
         },
         {
             'delay': 0.0,
-            'path': PATH_BOTTOM_RIGHT,
-            'slots': [(4, 4), (5, 4), (6, 4), (7, 4)],
+            'path': PATH_TR_DEEP,
+            'slots': [(2, 3), (3, 3), (4, 3), (5, 3)],
+            'spacing': 0.20,
+        },
+        # Wave 2 (split): bosses + butterflies alternating from each side
+        {
+            'delay': 1.2,
+            'path': PATH_SL,
+            'slots': [(2, 0), (2, 2), (3, 0), (3, 2)],
             'spacing': 0.18,
         },
-        # Row 3 from both sides
         {
-            'delay': 1.0,
-            'path': PATH_TOP_LEFT,
-            'slots': [(0, 3), (1, 3), (2, 3), (3, 3)],
+            'delay': 1.2,
+            'path': PATH_SR_LOW,
+            'slots': [(4, 0), (4, 2), (5, 0), (5, 2)],
+            'spacing': 0.18,
+        },
+        # Wave 3 (split): outer butterflies from sides
+        {
+            'delay': 2.6,
+            'path': PATH_SL_TIGHT,
+            'slots': [(0, 1), (1, 1), (0, 2), (1, 2)],
             'spacing': 0.18,
         },
         {
-            'delay': 1.0,
-            'path': PATH_TOP_RIGHT,
-            'slots': [(4, 3), (5, 3), (6, 3), (7, 3)],
+            'delay': 2.6,
+            'path': PATH_SR_TIGHT,
+            'slots': [(6, 1), (7, 1), (6, 2), (7, 2)],
             'spacing': 0.18,
         },
-        # Butterflies row 2 from top
+        # Wave 4 (split): bees from top
         {
-            'delay': 2.0,
-            'path': PATH_TOP_LEFT,
-            'slots': [(0, 2), (1, 2), (2, 2), (3, 2)],
-            'spacing': 0.20,
+            'delay': 4.0,
+            'path': PATH_TL_WIDE,
+            'slots': [(0, 3), (1, 3), (6, 3), (7, 3)],
+            'spacing': 0.18,
         },
         {
-            'delay': 2.0,
-            'path': PATH_TOP_RIGHT,
-            'slots': [(4, 2), (5, 2), (6, 2), (7, 2)],
-            'spacing': 0.20,
+            'delay': 4.0,
+            'path': PATH_TR_WIDE,
+            'slots': [(2, 4), (3, 4), (4, 4), (5, 4)],
+            'spacing': 0.18,
         },
-        # Butterflies row 1
+        # Wave 5 (split): remaining bees from top
         {
-            'delay': 3.0,
-            'path': PATH_BOTTOM_LEFT,
-            'slots': [(0, 1), (1, 1), (2, 1), (3, 1)],
-            'spacing': 0.20,
+            'delay': 5.2,
+            'path': PATH_TL,
+            'slots': [(0, 4), (1, 4)],
+            'spacing': 0.18,
         },
         {
-            'delay': 3.0,
-            'path': PATH_BOTTOM_RIGHT,
-            'slots': [(4, 1), (5, 1), (6, 1), (7, 1)],
-            'spacing': 0.20,
-        },
-        # Bosses from top
-        {
-            'delay': 4.2,
-            'path': PATH_TOP_CENTER,
-            'slots': [(2, 0), (3, 0), (4, 0), (5, 0)],
+            'delay': 5.2,
+            'path': PATH_TR,
+            'slots': [(6, 4), (7, 4)],
             'spacing': 0.18,
         },
     ]

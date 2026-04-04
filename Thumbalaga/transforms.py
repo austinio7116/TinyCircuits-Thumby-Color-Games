@@ -258,3 +258,6 @@ class TransformManager:
         node.position.x = -200
         node.position.y = -200
         group.kills += 1
+        # If all enemies in group are dead, deactivate immediately
+        if all(not alive for _, alive in group.enemies):
+            group.active = False

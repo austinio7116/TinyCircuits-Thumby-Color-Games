@@ -303,11 +303,11 @@ def activate_hostile_fighter(x, y):
 def start_hostile_dive():
     """Start the hostile fighter diving."""
     global hostile_fighter_dive_t, hostile_fighter_path, hostile_fighter_start_x, hostile_fighter_start_y
-    from dive import DIVE_CENTER, DIVE_SWEEP_LEFT, DIVE_SWEEP_RIGHT
+    from dive import DIVE_ROGUE_L, DIVE_ROGUE_R
     hostile_fighter_dive_t = 0.0
     hostile_fighter_start_x = hostile_fighter_x
     hostile_fighter_start_y = hostile_fighter_y
-    hostile_fighter_path = random.choice([DIVE_CENTER, DIVE_SWEEP_LEFT, DIVE_SWEEP_RIGHT])
+    hostile_fighter_path = DIVE_ROGUE_L if hostile_fighter_x < 0 else DIVE_ROGUE_R
 
 
 def kill_hostile_fighter():
@@ -383,7 +383,7 @@ hostile_fighter_entry_timer = 0.0
 hostile_fighter_entry_target_boss = None
 
 
-def attach_hostile_to_boss(formation_obj):
+def attach_hostile_to_boss(formation_obj, entry_pattern=None):
     """Set up the carried hostile fighter to fly in and attach to a boss."""
     global hostile_fighter_carry, hostile_fighter_active, hostile_fighter_alive
     global hostile_fighter_entry_timer, hostile_fighter_entry_target_boss
@@ -402,9 +402,14 @@ def attach_hostile_to_boss(formation_obj):
         hostile_fighter_carry = False
         return
 
-    # Set up entry animation — will fly in from top after entry pattern finishes
+    # Enters at the tail of the last wave
     hostile_fighter_entry_target_boss = target
-    hostile_fighter_entry_timer = 7.0  # delay: fly in after normal entry (~6s)
+    if entry_pattern:
+        last_delay = max(g['delay'] + len(g['slots']) * g['spacing']
+                         for g in entry_pattern)
+        hostile_fighter_entry_timer = last_delay + ENTRY_DURATION
+    else:
+        hostile_fighter_entry_timer = 7.0  # fallback
     hostile_fighter_carry = False
     hostile_fighter_active = False
     hostile_fighter_alive = False
@@ -755,7 +760,7 @@ def check_extra_life():
             next_extra_life += EXTRA_LIFE_INTERVAL
 
 
-def start_stage():
+def start_stage(entry_pattern=None):
     """Set up enemies for the current stage."""
     formation.reset()
     bullets.clear_all()
@@ -785,7 +790,7 @@ def start_stage():
 
     # If hostile fighter carried from previous stage, attach to a boss
     if hostile_fighter_carry:
-        attach_hostile_to_boss(formation)
+        attach_hostile_to_boss(formation, entry_pattern)
 
 
 def hide_all_enemies():
@@ -892,8 +897,9 @@ while True:
                     bullets.clear_all()
                     state = ST_CHALLENGE
                 else:
-                    start_stage()
-                    entry_state = EntryState(get_entry_pattern(hud.stage))
+                    _ep = get_entry_pattern(hud.stage)
+                    start_stage(_ep)
+                    entry_state = EntryState(_ep)
                     state = ST_ENTRY
 
         # ────────────────────────────────────────────────────

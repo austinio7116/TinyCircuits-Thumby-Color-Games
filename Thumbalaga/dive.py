@@ -2,74 +2,95 @@ import random
 from constants import *
 
 # Dive paths: lists of (dx, dy) waypoints relative to start position.
-# Enemy interpolates from waypoint to waypoint as t goes 0→1.
+# Enemy interpolates from waypoint to waypoint as t goes 0->1.
+# Generated from Galaga Z80 disassembly (hackbar/galaga), scaled for 128x128.
 
-DIVE_CENTER = [
-    (0, 0),
-    (-10, 25),
-    (10, 50),
-    (-5, 75),
-    (0, 100),
-    (0, 140),
+# ── Bee dive: arc out, dive deep past screen, loop back up ──
+# Scaled from original but extended vertically so bees exit bottom of screen
+
+DIVE_BEE_L = [
+    (0, 0), (-8, 5), (-14, 15), (-10, 30), (2, 45),
+    (18, 60), (30, 75), (35, 90), (30, 105),
+    (15, 115), (0, 120), (-10, 110), (-8, 90), (0, 140),
 ]
 
-DIVE_SWEEP_LEFT = [
-    (0, 0),
-    (15, 15),
-    (25, 35),
-    (15, 60),
-    (-10, 85),
-    (-5, 110),
-    (0, 140),
+DIVE_BEE_R = [
+    (0, 0), (8, 5), (14, 15), (10, 30), (-2, 45),
+    (-18, 60), (-30, 75), (-35, 90), (-30, 105),
+    (-15, 115), (0, 120), (10, 110), (8, 90), (0, 140),
 ]
 
-DIVE_SWEEP_RIGHT = [
-    (0, 0),
-    (-15, 15),
-    (-25, 35),
-    (-15, 60),
-    (10, 85),
-    (5, 110),
-    (0, 140),
+# ── Butterfly dive: arc, S-curve, dive past screen bottom ──
+
+DIVE_BUTTERFLY_L = [
+    (0, 0), (-10, 5), (-5, 15), (8, 25), (20, 35),
+    (28, 50), (22, 65), (10, 80), (-5, 90),
+    (-15, 100), (-10, 110), (0, 120), (5, 130), (0, 140),
 ]
 
-DIVE_LOOP = [
-    (0, 0),
-    (-20, 15),
-    (-30, 0),
-    (-20, -15),
-    (0, 0),
-    (10, 25),
-    (5, 55),
-    (0, 85),
-    (0, 140),
+DIVE_BUTTERFLY_R = [
+    (0, 0), (10, 5), (5, 15), (-8, 25), (-20, 35),
+    (-28, 50), (-22, 65), (-10, 80), (5, 90),
+    (15, 100), (10, 110), (0, 120), (-5, 130), (0, 140),
 ]
 
-DIVE_BOSS_SPECIAL = [
-    (0, 0),
-    (-20, 20),
-    (-35, 45),
-    (-20, 70),
-    (20, 85),
-    (35, 60),
-    (20, 40),
-    (0, 55),
-    (-10, 80),
-    (0, 110),
-    (0, 140),
+# ── Boss normal dive: wide sweeping spiral, exits bottom ──
+
+DIVE_BOSS_L = [
+    (0, 0), (-12, 0), (-12, 14), (-4, 27), (10, 26),
+    (2, 16), (-5, 26), (5, 37), (17, 47),
+    (26, 59), (31, 73), (32, 86), (28, 100), (10, 140),
 ]
 
-ALL_DIVE_PATHS = [DIVE_CENTER, DIVE_SWEEP_LEFT, DIVE_SWEEP_RIGHT, DIVE_LOOP]
-BOSS_DIVE_PATHS = [DIVE_BOSS_SPECIAL, DIVE_LOOP]
+DIVE_BOSS_R = [
+    (0, 0), (12, 0), (12, 14), (4, 27), (-10, 26),
+    (-2, 16), (5, 26), (-5, 37), (-17, 47),
+    (-26, 59), (-31, 73), (-32, 86), (-28, 100), (-10, 140),
+]
+
+# ── Boss capture dive: approach to tractor beam zone ──
+
+DIVE_BOSS_CAPTURE_L = [
+    (0, 0), (-6, -4), (-12, 2), (-14, 10), (-16, 17),
+    (-18, 25), (-20, 33), (-22, 40), (-24, 48),
+    (-26, 55), (-28, 63), (-30, 71), (-32, 78), (-34, 86),
+]
+
+DIVE_BOSS_CAPTURE_R = [
+    (0, 0), (6, -4), (12, 2), (14, 10), (16, 17),
+    (18, 25), (20, 33), (22, 40), (24, 48),
+    (26, 55), (28, 63), (30, 71), (32, 78), (34, 86),
+]
+
+# ── Rogue fighter dive: like boss but longer, exits bottom ──
+
+DIVE_ROGUE_L = [
+    (0, 0), (-12, 0), (-11, 15), (-3, 28), (11, 24),
+    (0, 16), (-4, 28), (7, 39), (20, 50),
+    (28, 62), (32, 76), (31, 90), (26, 104), (10, 140),
+]
+
+DIVE_ROGUE_R = [
+    (0, 0), (12, 0), (11, 15), (3, 28), (-11, 24),
+    (0, 16), (4, 28), (-7, 39), (-20, 50),
+    (-28, 62), (-32, 76), (-31, 90), (-26, 104), (-10, 140),
+]
 
 
 def select_dive_path(enemy):
-    if enemy.type == ENEMY_BOSS:
-        return random.choice(BOSS_DIVE_PATHS)
-    if enemy.slot_col < FORM_COLS // 2:
-        return random.choice([DIVE_SWEEP_LEFT, DIVE_CENTER, DIVE_LOOP])
+    """Select dive path based on enemy type and formation position."""
+    left = enemy.slot_col < FORM_COLS // 2
+    etype = enemy.type
+
+    if etype == ENEMY_BOSS or etype == ENEMY_BOSS_HIT:
+        if enemy.will_beam:
+            return DIVE_BOSS_CAPTURE_L if left else DIVE_BOSS_CAPTURE_R
+        return DIVE_BOSS_L if left else DIVE_BOSS_R
+    elif etype == ENEMY_BUTTERFLY:
+        return DIVE_BUTTERFLY_L if left else DIVE_BUTTERFLY_R
     else:
-        return random.choice([DIVE_SWEEP_RIGHT, DIVE_CENTER, DIVE_LOOP])
+        # Bees and all other types
+        return DIVE_BEE_L if left else DIVE_BEE_R
 
 
 def start_dive(enemy, formation=None, beam_active=False):
@@ -78,20 +99,20 @@ def start_dive(enemy, formation=None, beam_active=False):
     enemy.dive_t = 0.0
     enemy.dive_start_x = enemy.node.position.x
     enemy.dive_start_y = enemy.node.position.y
-    enemy.dive_path = select_dive_path(enemy)
     enemy.fire_timer = random.random() * 0.5 + 0.3
     enemy.escorts = []
     enemy.will_beam = False
 
     is_boss = enemy.type == ENEMY_BOSS or enemy.type == ENEMY_BOSS_HIT
-    if not is_boss or not formation:
-        return
+    if is_boss and formation:
+        # Boss decides before diving: tractor beam (solo) or escorts (no beam)
+        if not beam_active and random.random() < 0.25:
+            enemy.will_beam = True
 
-    # Boss decides before diving: tractor beam (solo) or escorts (no beam)
-    # Only attempt beam if no beam already active
-    if not beam_active and random.random() < 0.25:
-        enemy.will_beam = True
-        # Solo dive — no escorts
+    # Must set dive_path AFTER will_beam is decided
+    enemy.dive_path = select_dive_path(enemy)
+
+    if not is_boss or not formation or enemy.will_beam:
         return
 
     # Boss convoy: grab 1-2 butterflies from rows 1-2 as escorts

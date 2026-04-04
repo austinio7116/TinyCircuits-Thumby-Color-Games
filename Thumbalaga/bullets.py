@@ -98,21 +98,21 @@ class BulletManager:
     def draw(self, fb):
         has_frames = len(self.frames) >= 5
 
-        # Player bullets — white/silver shaft with red/cyan arrowhead at bottom
-        # Original: 4px white shaft, then 3px wide red arrowhead with cyan center
-        COL_SILVER = const(0xDEDB)  # (222,222,222)
+        # Player bullets — blue arrowhead at top, silver interface, red shaft
+        COL_BLUE = const(0x001F)
+        COL_SILVER = const(0xDEDB)
         for i in range(MAX_PLAYER_BULLETS):
             if self.p_active[i]:
                 sx = int(self.p_x[i] + 64)
                 sy = int(self.p_y[i] + 64)
                 if 1 <= sx < 126 and 0 <= sy < 122:
-                    # Silver shaft (top, 1px wide x 4px)
-                    fb.vline(sx, sy, 4, COL_SILVER)
-                    # Red arrowhead (3px wide x 2px)
-                    fb.rect(sx - 1, sy + 4, 3, 2, COL_RED, True)
-                    fb.pixel(sx, sy + 4, COL_CYAN)  # cyan center
-                    # Red tail tip
-                    fb.pixel(sx, sy + 6, COL_RED)
+                    # Blue arrowhead (top, 3px wide x 2px)
+                    fb.pixel(sx, sy, COL_BLUE)
+                    fb.rect(sx - 1, sy + 1, 3, 1, COL_BLUE, True)
+                    # Silver interface pixel
+                    fb.pixel(sx, sy + 2, COL_SILVER)
+                    # Red shaft (1px wide x 4px)
+                    fb.vline(sx, sy + 3, 4, COL_RED)
 
         # Enemy bullets — silver/white shaft with red arrow tip at bottom
         # Original: blue arrowhead at top, red shaft below
