@@ -1346,7 +1346,11 @@ while True:
                 hud.stage += 1
                 state = ST_STAGE_INTRO
                 state_timer = 1.5
-                play_sfx(level_start_sfx, CH_MUSIC)
+                level.set_stage(hud.stage)
+                if level.is_challenge_stage():
+                    play_sfx(challenge_start_sfx, CH_MUSIC)
+                else:
+                    play_sfx(level_start_sfx, CH_MUSIC)
 
         # ────────────────────────────────────────────────────
         # STATE: GAME OVER
