@@ -1010,7 +1010,8 @@ while True:
             if beam_phase != BEAM_PHASE_INACTIVE:
                 result = update_beam(dt, player, formation)
                 if result == 'caught':
-                    play_sfx(beam_capture_sfx, CH_PLAYER_DIE)
+                    engine_audio.stop(CH_MUSIC)  # stop beam sound
+                    play_sfx(beam_capture_sfx, CH_MUSIC)
                     # Player caught — enter dying state (capture animation runs in beam)
                     state = ST_DYING
                     state_timer = 2.5  # longer to allow capture animation
