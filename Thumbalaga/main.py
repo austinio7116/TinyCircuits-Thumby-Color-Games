@@ -727,6 +727,7 @@ state = ST_TITLE
 state_timer = 0.0
 entry_state = None
 challenge_state = ChallengeState()
+_challenge_was_perfect = False  # track result for post-challenge jingle
 
 
 # ── Helper functions ────────────────────────────────────────
@@ -1208,15 +1209,16 @@ while True:
             # Update challenge wave enemies (fly-through patterns)
             done = update_challenge(challenge_state, dt)
             if done:
+                global _challenge_was_perfect
                 state = ST_STAGE_CLEAR
                 state_timer = 3.0  # longer to show results
                 if challenge_state.kills >= CHALLENGE_TOTAL:
+                    _challenge_was_perfect = True
                     hud.add_score(CHALLENGE_PERFECT_BONUS)
-                    play_sfx(challenge_perfect_sfx, CH_MUSIC)
                     popups.spawn("PERFECT!", 0, -10)
                     popups.spawn(CHALLENGE_PERFECT_BONUS, 0, 0)
                 else:
-                    play_sfx(challenge_over_sfx, CH_MUSIC)
+                    _challenge_was_perfect = False
                 # Show hit results
                 popups.spawn("HITS:" + str(challenge_state.kills), 0, 10)
 
@@ -1343,11 +1345,19 @@ while True:
 
             if state_timer <= 0:
                 hide_all_enemies()
+                # Check if we just finished a challenge stage
+                was_challenge = level.is_challenge_stage()
                 hud.stage += 1
                 state = ST_STAGE_INTRO
                 state_timer = 1.5
                 level.set_stage(hud.stage)
-                if level.is_challenge_stage():
+                if was_challenge:
+                    # Post-challenge: play result jingle
+                    if _challenge_was_perfect:
+                        play_sfx(challenge_perfect_sfx, CH_MUSIC)
+                    else:
+                        play_sfx(challenge_over_sfx, CH_MUSIC)
+                elif level.is_challenge_stage():
                     play_sfx(challenge_start_sfx, CH_MUSIC)
                 else:
                     play_sfx(level_start_sfx, CH_MUSIC)
