@@ -1209,7 +1209,6 @@ while True:
             # Update challenge wave enemies (fly-through patterns)
             done = update_challenge(challenge_state, dt)
             if done:
-                global _challenge_was_perfect
                 state = ST_STAGE_CLEAR
                 state_timer = 3.0  # longer to show results
                 if challenge_state.kills >= CHALLENGE_TOTAL:
