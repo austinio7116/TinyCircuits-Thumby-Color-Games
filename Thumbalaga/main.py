@@ -93,7 +93,8 @@ def load_sfx(path):
     _draw_loading()
     try:
         return WaveSoundResource(path)
-    except:
+    except Exception as e:
+        print("SFX LOAD FAILED:", path, e)
         return None
 
 shoot_sfx = load_sfx("assets/shoot.wav")
@@ -112,8 +113,9 @@ rescue_sfx = load_sfx("assets/rescue.wav")
 enemy_shot_sfx = load_sfx("assets/enemy_shot.wav")
 level_start_sfx = load_sfx("assets/level_start.wav")
 challenge_start_sfx = load_sfx("assets/challenge_start.wav")
-challenge_over_sfx = load_sfx("assets/challenge_over.wav")
-challenge_perfect_sfx = load_sfx("assets/challenge_perfect.wav")
+# Reuse level_start for post-challenge (challenge_over/perfect too large for scratch space)
+challenge_over_sfx = level_start_sfx
+challenge_perfect_sfx = level_start_sfx
 
 transparent = Color(COL_MAGENTA)
 
@@ -1357,15 +1359,25 @@ while True:
                 state = ST_STAGE_INTRO
                 state_timer = 1.5
                 next_is_challenge = hud.stage >= 3 and (hud.stage - 3) % 4 == 0
+                print("STAGE", hud.stage, "prev_ch=", prev_is_challenge,
+                      "next_ch=", next_is_challenge,
+                      "sfx_start=", challenge_start_sfx is not None,
+                      "sfx_over=", challenge_over_sfx is not None,
+                      "sfx_perf=", challenge_perfect_sfx is not None,
+                      "sfx_lvl=", level_start_sfx is not None)
                 if prev_is_challenge:
                     # Post-challenge: play result jingle
                     if _challenge_was_perfect:
+                        print("PLAYING: challenge_perfect")
                         play_sfx(challenge_perfect_sfx, CH_MUSIC)
                     else:
+                        print("PLAYING: challenge_over")
                         play_sfx(challenge_over_sfx, CH_MUSIC)
                 elif next_is_challenge:
+                    print("PLAYING: challenge_start")
                     play_sfx(challenge_start_sfx, CH_MUSIC)
                 else:
+                    print("PLAYING: level_start")
                     play_sfx(level_start_sfx, CH_MUSIC)
 
         # ────────────────────────────────────────────────────
