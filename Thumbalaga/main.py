@@ -945,6 +945,12 @@ while True:
                     hud.add_score(pts)
                     # kill deferred — start_dying() handles it after flash
                     formation.count_alive()
+                else:
+                    # Boss hit but not dead
+                    if e.type == ENEMY_BOSS:
+                        e.node.frame_current_y = ENEMY_BOSS_HIT
+                        e.type = ENEMY_BOSS_HIT
+                        play_sfx(explode_boss_hit_sfx, CH_EXPLODE)
 
             bullets.draw(fb)
             explosions.update(dt)
@@ -1345,18 +1351,19 @@ while True:
             if state_timer <= 0:
                 hide_all_enemies()
                 # Check if we just finished a challenge stage
-                was_challenge = level.is_challenge_stage()
+                prev_stage = hud.stage
+                prev_is_challenge = prev_stage >= 3 and (prev_stage - 3) % 4 == 0
                 hud.stage += 1
                 state = ST_STAGE_INTRO
                 state_timer = 1.5
-                level.set_stage(hud.stage)
-                if was_challenge:
+                next_is_challenge = hud.stage >= 3 and (hud.stage - 3) % 4 == 0
+                if prev_is_challenge:
                     # Post-challenge: play result jingle
                     if _challenge_was_perfect:
                         play_sfx(challenge_perfect_sfx, CH_MUSIC)
                     else:
                         play_sfx(challenge_over_sfx, CH_MUSIC)
-                elif level.is_challenge_stage():
+                elif next_is_challenge:
                     play_sfx(challenge_start_sfx, CH_MUSIC)
                 else:
                     play_sfx(level_start_sfx, CH_MUSIC)
