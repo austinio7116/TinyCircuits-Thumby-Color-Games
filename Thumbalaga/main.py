@@ -1306,14 +1306,21 @@ while True:
                     if abs(bx - ex) < ENEMY_HALF + 1 and abs(by - ey) < ENEMY_HALF + 2:
                         bullets.p_active[bi] = False
                         hud.hits += 1
-                        ce.alive = False
-                        ce.active = False
-                        ce.node.opacity = 0.0
-                        explosions.spawn(ex, ey)
-                        play_sfx(explode_bee_sfx, CH_EXPLODE)
-                        challenge_state.kills += 1
-                        challenge_state.wave_kills[ce.wave_idx] += 1
-                        hud.add_score(CHALLENGE_HIT_POINTS)
+                        ce.hp -= 1
+                        if ce.hp <= 0:
+                            ce.alive = False
+                            ce.active = False
+                            ce.node.opacity = 0.0
+                            explosions.spawn(ex, ey)
+                            play_sfx(explode_bee_sfx, CH_EXPLODE)
+                            challenge_state.kills += 1
+                            challenge_state.wave_kills[ce.wave_idx] += 1
+                            hud.add_score(CHALLENGE_HIT_POINTS)
+                        else:
+                            # Boss hit but not dead — change to hit sprite
+                            ce.node.frame_current_y = ENEMY_BOSS_HIT
+                            ce._etype = ENEMY_BOSS_HIT
+                            play_sfx(explode_boss_hit_sfx, CH_EXPLODE)
                         # Check if entire wave of 8 is cleared
                         if challenge_state.wave_kills[ce.wave_idx] >= CHALLENGE_ENEMIES_PER_WAVE \
                            and not challenge_state.wave_done[ce.wave_idx]:

@@ -106,13 +106,14 @@ CHALLENGE_HIT_POINTS = const(100)
 class ChallengeWaveEnemy:
     """A single enemy in a challenge wave."""
     __slots__ = ('node', 'path', 'start_time', 'active', 'alive',
-                 'finished', 'wave_idx', '_last_x', '_etype')
+                 'finished', 'wave_idx', '_last_x', '_etype', 'hp')
 
     def __init__(self):
         self.node = None
         self.path = None
         self.start_time = 0.0
         self.active = False
+        self.hp = 1
         self.alive = True
         self.finished = False
         self.wave_idx = 0
@@ -166,6 +167,7 @@ class ChallengeState:
                 else:
                     this_type = etype
                 ce._etype = this_type
+                ce.hp = ENEMY_HP[this_type]
 
                 # Assign path: split = 4 on each path, trailing = all on pathA
                 if split:
