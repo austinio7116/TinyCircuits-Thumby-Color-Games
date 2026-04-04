@@ -7,7 +7,7 @@ class Enemy:
                  'dive_start_y', 'in_formation', 'alive',
                  'entry_t', 'entry_path', 'entry_done',
                  'fire_timer', 'escorts', 'is_escort', '_last_x',
-                 'hit_flash', '_orig_type')
+                 'hit_flash', '_orig_type', 'will_beam')
 
     def __init__(self):
         self.node = None
@@ -30,6 +30,7 @@ class Enemy:
         self._last_x = 0.0
         self.hit_flash = 0.0    # countdown: >0 means showing dying palette
         self._orig_type = ENEMY_BEE
+        self.will_beam = False
 
     def init_for_stage(self, etype, col, row, node):
         self.type = etype
@@ -49,6 +50,7 @@ class Enemy:
         self._last_x = -200.0
         self.hit_flash = 0.0
         self._orig_type = etype
+        self.will_beam = False
         node.frame_current_y = etype
         node.frame_current_x = 6  # facing-down idle frame
         node.opacity = 0.0  # hidden until entry begins
@@ -58,8 +60,12 @@ class Enemy:
     def start_dying(self):
         """Show dying palette. Node stays visible briefly, then kill() hides it."""
         self.alive = False  # count as dead immediately for stage clear checks
-        if self.node and self._orig_type in DYING_PALETTE:
-            self.node.frame_current_y = DYING_PALETTE[self._orig_type]
+        if self.node:
+            if self._orig_type == ENEMY_SATELLITE:
+                # Satellite dying = frames 3-5 of its own row
+                self.node.frame_current_x = SATELLITE_DYING_FRAME_START
+            elif self._orig_type in DYING_PALETTE:
+                self.node.frame_current_y = DYING_PALETTE[self._orig_type]
         self.hit_flash = 0.12  # seconds to show dying palette before hiding
 
     def update_flash(self, dt):

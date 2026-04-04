@@ -297,7 +297,7 @@ def activate_hostile_fighter(x, y):
     captured_ship_node.opacity = 1.0
     captured_ship_node.position.x = x
     captured_ship_node.position.y = y
-    captured_ship_node.rotation = 0
+    captured_ship_node.rotation = 3.14159  # face down — now an enemy
 
 
 def start_hostile_dive():
@@ -958,7 +958,8 @@ while True:
                 captured_ship_node.position.y = capturing_boss.node.position.y - 12
 
             # Trigger dive attacks
-            diver = maybe_trigger_dive(formation, level, dt)
+            diver = maybe_trigger_dive(formation, level, dt,
+                                       beam_phase != BEAM_PHASE_INACTIVE)
             if diver is not None:
                 play_sfx(dive_sfx, CH_SHOOT)  # reuse channel for dive swoosh
 
@@ -970,10 +971,10 @@ while True:
                     done = update_diving_enemy(e, dt, level.dive_speed, formation)
                     if not done:
                         is_boss = e.type == ENEMY_BOSS or e.type == ENEMY_BOSS_HIT
-                        if is_boss and beam_phase == BEAM_PHASE_INACTIVE \
-                           and e.node.position.y > 10 and e.node.position.y < 30 \
-                           and random.random() < 0.12:
-                            # Boss stops mid-dive to fire tractor beam
+                        if is_boss and e.will_beam \
+                           and beam_phase == BEAM_PHASE_INACTIVE \
+                           and e.node.position.y > 10 and e.node.position.y < 30:
+                            # Boss pre-planned to tractor beam — activate it
                             start_beam(e)
                             play_sfx(beam_sfx, CH_MUSIC)
                         elif not is_boss:
@@ -1053,20 +1054,20 @@ while True:
                 stop_beam()
 
             # Diving enemies body-to-body with player
+            # Like original Galaga: collision kills player but enemy survives
             if state == ST_PLAYING:  # not already dying
                 diver_hit = check_divers_vs_player(formation, player)
                 if diver_hit is not None:
-                    explosions.spawn(diver_hit.node.position.x,
-                                    diver_hit.node.position.y)
-                    diver_hit.kill()
-                    formation.count_alive()
                     state = ST_DYING
                     state_timer = 1.5
                     player.alive = False
                     player.opacity = 0.0
+                    wingman_node.opacity = 0.0
                     player_exp_node.position.x = player.position.x
                     player_exp_node.position.y = player.position.y
                     player_exp_node.opacity = 1.0
+                    player_exp_node.frame_current_x = 0
+                    player_exp_node.playing = True
                     play_sfx(die_sfx, CH_PLAYER_DIE)
                     stop_beam()
 
@@ -1105,11 +1106,7 @@ while True:
                 t_hit = transforms.check_player_collision(
                     player.position.x, player.position.y)
                 if t_hit:
-                    g, idx = t_hit
-                    ex = g.enemies[idx][0].position.x
-                    ey = g.enemies[idx][0].position.y
-                    transforms.kill_enemy(g, idx)
-                    explosions.spawn(ex, ey)
+                    # Like original: collision kills player, enemy survives
                     state = ST_DYING
                     state_timer = 1.5
                     player.alive = False
@@ -1147,8 +1144,7 @@ while True:
                     dx = abs(player.position.x - hostile_fighter_x)
                     dy = abs(player.position.y - hostile_fighter_y)
                     if dx < PLAYER_HALF_W + 4 and dy < PLAYER_HALF_H + 4:
-                        explosions.spawn(hostile_fighter_x, hostile_fighter_y)
-                        kill_hostile_fighter()
+                        # Like original: collision kills player, enemy survives
                         state = ST_DYING
                         state_timer = 1.5
                         player.alive = False
@@ -1166,7 +1162,8 @@ while True:
             check_extra_life()
 
             # Check stage clear (no formation enemies AND no active transforms)
-            if formation.alive_count <= 0 and len(transforms.groups) == 0:
+            if formation.alive_count <= 0 and len(transforms.groups) == 0 \
+               and not (hostile_fighter_active and hostile_fighter_alive):
                 state = ST_STAGE_CLEAR
                 state_timer = 1.5
                 stop_beam()
@@ -1338,6 +1335,7 @@ while True:
             state_timer -= dt
             if state_timer <= 0:
                 state_timer = 0
+            explosions.update(dt)
             hud.draw(fb)
             hud.draw_game_over(fb)
 

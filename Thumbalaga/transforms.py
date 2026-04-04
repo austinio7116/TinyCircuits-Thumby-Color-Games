@@ -37,10 +37,9 @@ TRANSFORM_PATH_CENTER = [
 TRANSFORM_PATHS = [TRANSFORM_PATH_LEFT, TRANSFORM_PATH_RIGHT, TRANSFORM_PATH_CENTER]
 TRANSFORM_SPREAD = const(14)
 
-# Pre-morph pulsation: cycle through color rows
+# Pre-morph pulsation: cycle through frames 0-5 of the pretransform row
 PREMORPH_DURATION = 1.0  # seconds to pulsate before morphing
-PREMORPH_COLORS = [ENEMY_BEE, ENEMY_PRETRANSFORM, ENEMY_BEE_DYING,
-                   ENEMY_PRETRANSFORM, ENEMY_BEE, ENEMY_PRETRANSFORM]
+PREMORPH_FRAME_COUNT = const(6)  # only 6 real frames per pretransform row
 
 
 class TransformGroup:
@@ -85,13 +84,20 @@ class TransformManager:
 
         # Handle pre-morph pulsation
         if self.premorph_bee is not None:
+            # If the bee was killed during flash, cancel the transform
+            if not self.premorph_bee.alive:
+                self.premorph_bee = None
+                return None
             self.premorph_timer -= dt
             if self.premorph_timer > 0:
-                # Cycle through color palettes
-                phase = int((PREMORPH_DURATION - self.premorph_timer) / PREMORPH_DURATION * len(PREMORPH_COLORS))
-                phase = min(phase, len(PREMORPH_COLORS) - 1)
+                # Switch to pretransform row and cycle through its 6 frames
+                pt_row = PRETRANSFORM_PALETTE.get(self.premorph_bee._orig_type,
+                                                   ENEMY_BEE_PRETRANSFORM)
+                frame = int((PREMORPH_DURATION - self.premorph_timer) / PREMORPH_DURATION * PREMORPH_FRAME_COUNT)
+                frame = min(frame, PREMORPH_FRAME_COUNT - 1)
                 if self.premorph_bee.node:
-                    self.premorph_bee.node.frame_current_y = PREMORPH_COLORS[phase]
+                    self.premorph_bee.node.frame_current_y = pt_row
+                    self.premorph_bee.node.frame_current_x = frame
                 return None  # still pulsating
             else:
                 # Pulsation done — do the actual morph
@@ -105,12 +111,17 @@ class TransformManager:
             return None
         self.morph_timer = self.morph_interval
 
-        # Find a bee in formation to morph
+        # Find a bee to morph (or butterfly if no bees left)
         source_bee = None
         for e in formation.enemies:
             if e is not None and e.alive and e.in_formation and e.type == ENEMY_BEE:
                 source_bee = e
                 break
+        if source_bee is None:
+            for e in formation.enemies:
+                if e is not None and e.alive and e.in_formation and e.type == ENEMY_BUTTERFLY:
+                    source_bee = e
+                    break
         if source_bee is None:
             return None
 

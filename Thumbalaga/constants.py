@@ -31,9 +31,10 @@ ENEMY_BOSCONIAN_DYING = const(14)
 ENEMY_GALAXIAN_DYING = const(15)
 ENEMY_DRAGONFLY_DYING = const(16)
 ENEMY_ENTERPRISE_DYING = const(17)
-ENEMY_SATELLITE_DYING = const(18)
-ENEMY_PRETRANSFORM = const(19)  # pulsating bee before morphing
+ENEMY_BEE_PRETRANSFORM = const(18)        # bee pulsating before morphing
+ENEMY_BUTTERFLY_PRETRANSFORM = const(19)  # butterfly pulsating before morphing
 NUM_ENEMY_TYPES = const(20)
+# Satellite dying = frames 3-5 of ENEMY_SATELLITE row (no separate row)
 
 # Hostile captured fighter — uses player_captured (red) sprite, not in enemy sheet
 HOSTILE_FIGHTER_POINTS = const(1000)
@@ -44,17 +45,17 @@ POINTS_BUTTERFLY = (80, 160)
 POINTS_BOSS = (150, 400)
 POINTS_TRANSFORM = (150, 300)  # scorpion, bosconian, galaxian, dragonfly
 POINTS_CHALLENGE = (100, 100)  # challenge-exclusive enemies
-POINTS = (POINTS_BEE, POINTS_BUTTERFLY, POINTS_BOSS, POINTS_BOSS,
-          POINTS_TRANSFORM, POINTS_TRANSFORM, POINTS_TRANSFORM, POINTS_TRANSFORM,
-          POINTS_CHALLENGE, POINTS_CHALLENGE,
-          POINTS_BOSS, POINTS_BEE, POINTS_BUTTERFLY,  # dying versions (same pts)
-          POINTS_TRANSFORM, POINTS_TRANSFORM, POINTS_TRANSFORM,
-          POINTS_CHALLENGE, POINTS_CHALLENGE, POINTS_CHALLENGE,
-          POINTS_BEE)  # pretransform
+POINTS = (POINTS_BEE, POINTS_BUTTERFLY, POINTS_BOSS, POINTS_BOSS,      # 0-3
+          POINTS_TRANSFORM, POINTS_TRANSFORM, POINTS_TRANSFORM,        # 4-6
+          POINTS_CHALLENGE, POINTS_CHALLENGE, POINTS_CHALLENGE,         # 7-9
+          POINTS_BOSS, POINTS_BEE, POINTS_BUTTERFLY,                    # 10-12 dying
+          POINTS_TRANSFORM, POINTS_TRANSFORM, POINTS_TRANSFORM,        # 13-15 dying
+          POINTS_CHALLENGE, POINTS_CHALLENGE,                           # 16-17 dying
+          POINTS_BEE, POINTS_BUTTERFLY)                                 # 18-19 pretransform
 
 # Enemy HP by type
-ENEMY_HP = (1, 1, 2, 1, 1, 1, 2, 1, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1)
+ENEMY_HP = (1, 1, 2, 1, 1, 1, 2, 1, 1, 1,  # 0-9 normal
+            1, 1, 1, 1, 1, 1, 1, 1, 1, 1)   # 10-19 dying + pretransform
 
 # Map normal enemy type to its dying palette version
 DYING_PALETTE = {
@@ -66,8 +67,14 @@ DYING_PALETTE = {
     ENEMY_BOSCONIAN: ENEMY_BOSCONIAN_DYING,
     ENEMY_GALAXIAN: ENEMY_GALAXIAN_DYING,
     ENEMY_DRAGONFLY: ENEMY_DRAGONFLY_DYING,
-    ENEMY_SATELLITE: ENEMY_SATELLITE_DYING,
+    # Satellite dying = frames 3-5 of its own row, handled in code
     ENEMY_ENTERPRISE: ENEMY_ENTERPRISE_DYING,
+}
+
+# Pre-transform pulsation palette per morph source type
+PRETRANSFORM_PALETTE = {
+    ENEMY_BEE: ENEMY_BEE_PRETRANSFORM,
+    ENEMY_BUTTERFLY: ENEMY_BUTTERFLY_PRETRANSFORM,
 }
 
 # Transform enemy appearance by stage range
@@ -112,16 +119,23 @@ IDLE_FRAME_B = const(7)       # facing-down frame 2 (for 8-frame enemies)
 IDLE_ANIM_FPS = 3.0           # idle wing-flap speed (frames per second)
 
 # Per-type frame count (some enemies have fewer rotation frames)
-ENEMY_FRAME_COUNT = (8, 8, 8, 8, 7, 7, 7, 7, 6, 7,  # normal types
-                     8, 8, 8, 7, 7, 7, 7, 7, 6, 6)   # dying + pretransform
+ENEMY_FRAME_COUNT = (8, 8, 8, 8, 7, 7, 7, 7, 6, 7,  # 0-9 normal
+                     8, 8, 8, 7, 7, 7, 7, 7,         # 10-17 dying
+                     6, 6)                              # 18-19 pretransform
+
+# Satellite alive frames = 0-2, dying frames = 3-5 (all in row 8)
+SATELLITE_ALIVE_FRAMES = const(3)
+SATELLITE_DYING_FRAME_START = const(3)
 
 # Per-type idle frames (the two "facing down" frames for animation)
 def get_idle_frames(etype):
+    if etype == ENEMY_SATELLITE:
+        return 0, 1  # satellite only has 3 alive frames (0-2)
     fc = ENEMY_FRAME_COUNT[etype] if etype < len(ENEMY_FRAME_COUNT) else 8
     if fc >= 8:
         return 6, 7
     elif fc >= 6:
-        return fc - 2, fc - 1  # last two frames
+        return fc - 2, fc - 1
     else:
         return 0, 1
 

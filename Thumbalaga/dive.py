@@ -72,8 +72,8 @@ def select_dive_path(enemy):
         return random.choice([DIVE_SWEEP_RIGHT, DIVE_CENTER, DIVE_LOOP])
 
 
-def start_dive(enemy, formation=None):
-    """Initiate a dive attack. Boss grabs nearby butterfly escorts if formation given."""
+def start_dive(enemy, formation=None, beam_active=False):
+    """Initiate a dive attack. Boss either plans to tractor beam (solo) or takes escorts."""
     enemy.in_formation = False
     enemy.dive_t = 0.0
     enemy.dive_start_x = enemy.node.position.x
@@ -81,26 +81,37 @@ def start_dive(enemy, formation=None):
     enemy.dive_path = select_dive_path(enemy)
     enemy.fire_timer = random.random() * 0.5 + 0.3
     enemy.escorts = []
+    enemy.will_beam = False
+
+    is_boss = enemy.type == ENEMY_BOSS or enemy.type == ENEMY_BOSS_HIT
+    if not is_boss or not formation:
+        return
+
+    # Boss decides before diving: tractor beam (solo) or escorts (no beam)
+    # Only attempt beam if no beam already active
+    if not beam_active and random.random() < 0.25:
+        enemy.will_beam = True
+        # Solo dive — no escorts
+        return
 
     # Boss convoy: grab 1-2 butterflies from rows 1-2 as escorts
-    if formation and (enemy.type == ENEMY_BOSS or enemy.type == ENEMY_BOSS_HIT):
-        for row in [1, 2]:  # butterfly rows
-            for dc in [0, -1, 1, -2, 2]:
-                col = enemy.slot_col + dc
-                if col < 0 or col >= FORM_COLS:
-                    continue
-                esc = formation.get_enemy(col, row)
-                if esc and esc.alive and esc.in_formation and \
-                   esc.type == ENEMY_BUTTERFLY and len(enemy.escorts) < 2:
-                    esc.in_formation = False
-                    esc.is_escort = True
-                    esc.dive_path = enemy.dive_path
-                    esc.dive_t = 0.0
-                    esc.dive_start_x = esc.node.position.x
-                    esc.dive_start_y = esc.node.position.y
-                    enemy.escorts.append(esc)
-            if len(enemy.escorts) >= 2:
-                break
+    for row in [1, 2]:  # butterfly rows
+        for dc in [0, -1, 1, -2, 2]:
+            col = enemy.slot_col + dc
+            if col < 0 or col >= FORM_COLS:
+                continue
+            esc = formation.get_enemy(col, row)
+            if esc and esc.alive and esc.in_formation and \
+               esc.type == ENEMY_BUTTERFLY and len(enemy.escorts) < 2:
+                esc.in_formation = False
+                esc.is_escort = True
+                esc.dive_path = enemy.dive_path
+                esc.dive_t = 0.0
+                esc.dive_start_x = esc.node.position.x
+                esc.dive_start_y = esc.node.position.y
+                enemy.escorts.append(esc)
+        if len(enemy.escorts) >= 2:
+            break
 
 
 @micropython.native
@@ -158,7 +169,7 @@ def update_diving_enemy(enemy, dt, dive_speed, formation):
     return False
 
 
-def maybe_trigger_dive(formation, level, dt):
+def maybe_trigger_dive(formation, level, dt, beam_active=False):
     """Periodically select an enemy to dive. Returns the enemy if one started, else None."""
     formation.dive_timer -= dt
     if formation.dive_timer > 0:
@@ -175,5 +186,5 @@ def maybe_trigger_dive(formation, level, dt):
         return None
 
     enemy = random.choice(candidates)
-    start_dive(enemy, formation)
+    start_dive(enemy, formation, beam_active)
     return enemy
