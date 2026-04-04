@@ -977,7 +977,7 @@ while True:
             diver = maybe_trigger_dive(formation, level, dt,
                                        beam_phase != BEAM_PHASE_INACTIVE)
             if diver is not None:
-                play_sfx(dive_sfx, CH_SHOOT)  # reuse channel for dive swoosh
+                play_sfx(dive_sfx, CH_PLAYER_DIE)  # separate channel so shooting doesn't cut it
 
             # Update diving enemies
             for e in formation.enemies:
