@@ -1,0 +1,6 @@
+DeepThumb
+
+Chess with a C-powered AI engine!
+4 difficulty levels. Play as white or black.
+
+Author: Austinio (early tester)
