@@ -12,6 +12,7 @@ try:
 except:
   pass # already in correct directory (emulator)
 from p8lib import *
+import gc
 
 # Button mapping: PICO-8 0=Left,1=Right,2=Up,3=Down,4=O/Z,5=X
 # On Thumby Color: A=action(Z), B=secondary(X), dpad=dpad
@@ -59,6 +60,7 @@ class pico8():
     self.items=[]
     self.new_items=[]
     self.entities=[]
+    gc.collect()
 
     # ratios
     snake_ratio=    0.1+level*0.05
@@ -775,7 +777,7 @@ class pico8():
   def make_explosion(self,x,y):
     sfx(5)
     # dirt
-    amnt=int(8+rnd(8))
+    amnt=int(4+rnd(4))
     for i in range(amnt):
       e=self.make_entity(x+rnd(24),y-8+rnd(32),self.particles)
       add_params({
@@ -788,7 +790,7 @@ class pico8():
       },e)
 
     # smalls
-    amnt=int(8+rnd(8))
+    amnt=int(4+rnd(4))
     for i in range(amnt):
       e=self.make_entity(x+8,y+8,self.particles)
       a=rnd(0.7)-0.1
@@ -1077,103 +1079,144 @@ class pico8():
         self.swap_state(self.title_state)
         return
 
+    # Cache player position for hot loops
+    px=pl["x"]
+    py=pl["y"]
+    pdir=pl["dir"]
+    pwhip=pl["whip"]
+    pitem=pl["item"]
+    pmode=pl["mode"]
+
     # items loop
-    for e in list(self.items):
+    items=self.items
+    ents=self.entities
+    for e in items[:]:
+      ex=e["x"]
+      ey=e["y"]
       if e.get("inair")==True:
         # check for impact with entities
-        for e2 in list(self.entities):
-          if e.get("cooldown",0)==0 or e2!=pl:
-            v=sqrt(e["dx"]*e["dx"]+e["dy"]*e["dy"])
-            if v>3 and abs(e2["x"]-e["x"])<5 and abs(e2["y"]-e["y"])<5:
-              if not(e.get("name")=="rope" and e2==pl) and e.get("name")!=e2.get("name"):
-                self.damage_entity(e2,e)
-                if e.get("flip_on_hit",True): e["dx"]=-e2["dx"]/2
+        edx=e["dx"]
+        edy=e["dy"]
+        v2=edx*edx+edy*edy
+        if v2>9: # v>3 squared
+          ecool=e.get("cooldown",0)
+          ename=e.get("name")
+          for e2 in ents:
+            if ecool==0 or e2!=pl:
+              if abs(e2["x"]-ex)<5 and abs(e2["y"]-ey)<5:
+                if not(ename=="rope" and e2==pl) and ename!=e2.get("name"):
+                  self.damage_entity(e2,e)
+                  if e.get("flip_on_hit",True): e["dx"]=-e2["dx"]/2
 
       # instant pickup?
       if e.get("can_take",False):
-        if abs(pl["x"]-e["x"])<4 and abs(pl["y"]-e["y"])<4:
-          if e.get("value") is not None:
+        if abs(px-ex)<4 and abs(py-ey)<4:
+          val=e.get("value")
+          if val is not None:
             sfx(7)
-            if e["value"]==-2: self.add_bombs(3)
-            if e["value"]==-1: self.add_ropes(3)
-            if e["value"]>0: pl["money"]+=e["value"]
-          if e in self.items: self.items.remove(e)
+            if val==-2: self.add_bombs(3)
+            if val==-1: self.add_ropes(3)
+            if val>0: pl["money"]+=val
+          if e in items: items.remove(e)
           continue
 
-      if e!=pl["item"]:
+      if e!=pitem:
         # pickup item?
-        if (pl["mode"]==0 and btn(3) and
+        if (pmode==0 and btn(3) and
             e.get("can_grab",False) and
             not pl.get("inair",False) and
-            abs(pl["x"]-e["x"])<5 and
-            abs(pl["y"]-e["y"])<5 and
-            self.ok_to_crouch): # DOWN = pick up
+            abs(px-ex)<5 and
+            abs(py-ey)<5 and
+            self.ok_to_crouch):
           if pl.get("stowed_item") is not None:
-            self.items.append(pl["stowed_item"])
+            items.append(pl["stowed_item"])
             self.set_item_to_player_pos(pl["stowed_item"])
             pl["stowed_item"]["inair"]=True
             pl["stowed_item"]=None
           if pl["holding"]==2:
-            if pl["item"] in self.items: self.items.remove(pl["item"])
+            if pl["item"] in items: items.remove(pl["item"])
             pl["bombs"].append(pl["item"])
           if pl["holding"]==3:
-            if pl["item"] in self.items: self.items.remove(pl["item"])
+            if pl["item"] in items: items.remove(pl["item"])
             pl["ropes"].append(pl["item"])
 
           pl["item"]=e
           pl["holding"]=1
           self.ok_to_crouch=False
-          if e.get("on_grab"): e["on_grab"](e)
+          og=e.get("on_grab")
+          if og: og(e)
 
         e["update"](e)
 
       # check whip
-      if pl["whip"]>0:
-        if (abs(pl["x"]+8*pl["dir"]-e["x"])<6 and
-            abs(pl["y"]-e["y"]+2)<8 and e.get("on_hit")):
+      if pwhip>0:
+        if (abs(px+8*pdir-ex)<6 and
+            abs(py-ey+2)<8 and e.get("on_hit")):
           e["on_hit"](e,True)
           pl["whip"]=0
+          pwhip=0
 
     # entities loop
-    for e1 in list(self.entities):
-      # e2e collision
-      for e2 in list(self.entities):
-        if (e1!=e2 and e1.get("damage",1)>=0 and
-            (e1.get("collides_with_player",True) or e2.get("collides_with_player",True))):
-          if (abs(e2["x"]-e1["x"])<(e2["w"]+e1["w"])/2-2 and
-              abs(e2["y"]-e1["y"])<(e2["h"]+e1["h"])/2-2):
-            self.e2e_coll(e1,e2)
+    whipx=px+8*pdir
+    for e1 in ents[:]:
+      e1x=e1["x"]
+      e1y=e1["y"]
+
+      # Only do e2e collision if near player (within ~96px)
+      near_player=abs(e1x-px)<96 and abs(e1y-py)<96
+      if near_player and e1.get("damage",1)>=0:
+        e1w=e1["w"]
+        e1h=e1["h"]
+        e1col=e1.get("collides_with_player",True)
+        for e2 in ents:
+          if e1!=e2 and (e1col or e2.get("collides_with_player",True)):
+            dx=abs(e2["x"]-e1x)
+            if dx<16: # quick distance pre-check
+              if (dx<(e2["w"]+e1w)/2-2 and
+                  abs(e2["y"]-e1y)<(e2["h"]+e1h)/2-2):
+                self.e2e_coll(e1,e2)
 
       # spikes?
       if e1.get("inair",False) and e1.get("health",0)>0 and e1.get("name")!="bat":
-        tx=flr(e1["x"]/8)
-        ty=flr((e1["y"]+3)/8)
-        if e1["dy"]>0 and fget(mget(tx,ty),3):
-          mset(tx,ty,36)
-          self.damage_entity(e1,None,99)
+        if e1["dy"]>0:
+          tx=flr(e1x/8)
+          ty=flr((e1y+3)/8)
+          if fget(mget(tx,ty),3):
+            mset(tx,ty,36)
+            self.damage_entity(e1,None,99)
 
       # check whip
-      if e1!=pl and pl["whip"]>0:
-        if (abs(pl["x"]+8*pl["dir"]-e1["x"])<6 and
-            abs(pl["y"]-e1["y"])<6 and
+      if e1!=pl and pwhip>0:
+        if (abs(whipx-e1x)<6 and
+            abs(py-e1y)<6 and
             e1.get("bleed_timer",0)==0):
-          self.damage_entity(e1,None,1,pl["dir"],-1)
+          self.damage_entity(e1,None,1,pdir,-1)
 
-      # update it
-      e1["update"](e1)
+      # Only run full physics for nearby entities, just animate far ones
+      if near_player or e1==pl:
+        e1["update"](e1)
+      else:
+        # minimal update: just animation tick
+        e1["t"]+=1
+        ef=e1["frames"]
+        if ef>0:
+          if e1["t"]%e1["fs"]==0: e1["frame"]+=1
+          if e1["frame"]==ef: e1["frame"]=0
 
     if pl["item"]!=None:
       self.set_item_to_player_pos(pl["item"])
 
-    for e in list(self.particles):
+    # Only update nearby particles
+    for e in self.particles[:]:
       e["update"](e)
 
     # add new items
-    for e in self.new_items:
-      self.items.append(e)
-    self.new_items=[]
+    if self.new_items:
+      items.extend(self.new_items)
+      self.new_items=[]
 
   def bleed(self,x,y):
+    if len(self.particles)>30: return  # cap particles
     e=self.make_entity(x,y,self.particles)
     add_params({
       "spr":99,
@@ -1376,9 +1419,10 @@ class pico8():
   def spro(self,id,dx,dy,oc):
     for i in range(16):
       pal(i,oc)
-    for x in range(-1,2):
-      for y in range(-1,2):
-        spr(id,dx+x,dy+y)
+    spr(id,dx-1,dy)
+    spr(id,dx+1,dy)
+    spr(id,dx,dy-1)
+    spr(id,dx,dy+1)
     pal()
     spr(id,dx,dy)
 
@@ -1441,72 +1485,84 @@ class pico8():
     return fget(mget(tx,ty),0)
 
   def collide_side(self,e):
-    offset=4
-    data={}
-    i=-(e["h"]/3)
-    while i<=(e["h"]/3):
-      t=mget((e["x"]+(offset))/8,(e["y"]+i)/8)
+    ex=e["x"]
+    ey=e["y"]
+    eh3=e["h"]/3
+    i=-eh3
+    while i<=eh3:
+      yi=ey+i
+      t=mget((ex+4)/8,yi/8)
       if fget(t,0):
         e["odx"]=e["dx"]
         e["dx"]=0
-        e["x"]=(flr(((e["x"]+(offset))/8))*8)-(offset)
-        data["tile"]=t
-        data["tx"]=flr((e["x"]+(offset))/8)
-        data["ty"]=flr((e["y"]+i)/8)
-        return data
-      t=mget((e["x"]-(offset))/8,(e["y"]+i)/8)
+        e["x"]=(flr((ex+4)/8))*8-4
+        return {"tile":t,"tx":flr((e["x"]+4)/8),"ty":flr(yi/8)}
+      t=mget((ex-4)/8,yi/8)
       if fget(t,0):
         e["odx"]=e["dx"]
         e["dx"]=0
-        e["x"]=(flr((e["x"]-(offset))/8)*8)+8+(offset)
-        data["tile"]=t
-        data["tx"]=flr((e["x"]-(offset))/8-1)
-        data["ty"]=flr((e["y"]+i)/8)
-        return data
+        e["x"]=flr((ex-4)/8)*8+12
+        return {"tile":t,"tx":flr((e["x"]-4)/8-1),"ty":flr(yi/8)}
       i+=2
     return None
 
   def should_fall(self,e):
     if e.get("inair",False): return True
-    air=True
-    i=-(e["w"]/3)
-    while i<=(e["w"]/3):
-      newty=flr((e["y"]+(e["h"]/2)+1)/8)
-      tile=mget((e["x"]+i)/8,newty)
+    ex=e["x"]
+    ew3=e["w"]/3
+    newty=flr((e["y"]+e["h"]/2+1)/8)
+    i=-ew3
+    while i<=ew3:
+      tile=mget((ex+i)/8,newty)
       if fget(tile,0) or fget(tile,1):
-        air=False
+        return False
       i+=2
-    return air
+    return True
 
   def collide_floor(self,e):
     if e["dy"]<0:
       return False
+    ex=e["x"]
+    ey=e["y"]
+    eh2=e["h"]/2
+    ew3=e["w"]/3
+    newty=flr((ey+eh2)/8)
     landed=False
-    i=-(e["w"]/3)
-    while i<=(e["w"]/3):
-      newty=flr((e["y"]+(e["h"]/2))/8)
-      tile=mget((e["x"]+i)/8,newty)
+    plmode=self.pl["mode"]
+    lastty=e.get("lastty",-1)
+    i=-ew3
+    while i<=ew3:
+      tile=mget((ex+i)/8,newty)
       if fget(tile,0):
         landed=True
-      if fget(tile,1) and self.pl["mode"]!=1:
-        if e.get("lastty",-1)<newty: landed=True
+        break
+      if fget(tile,1) and plmode!=1:
+        if lastty<newty:
+          landed=True
+          break
       i+=2
 
     if landed:
       e["ody"]=e["dy"]
       e["dy"]=0
-      e["y"]=(flr((e["y"]+(e["h"]/2))/8)*8)-(e["h"]/2)
+      e["y"]=flr((ey+eh2)/8)*8-eh2
 
     return landed
 
   def collide_roof(self,e):
+    ex=e["x"]
+    ey=e["y"]
+    eh2=e["h"]/2
+    ew3=e["w"]/3
+    top=(ey-eh2)/8
     collided=False
-    i=-(e["w"]/3)
-    while i<=(e["w"]/3):
-      if fget(mget((e["x"]+i)/8,(e["y"]-(e["h"]/2))/8),0):
+    i=-ew3
+    while i<=ew3:
+      if fget(mget((ex+i)/8,top),0):
         e["dy"]=0
-        e["y"]=flr((e["y"]-(e["h"]/2))/8)*8+8+(e["h"]/2)
+        e["y"]=flr(top)*8+8+eh2
         collided=True
+        break
       i+=2
     return collided
 
@@ -1566,20 +1622,13 @@ class pico8():
     t.append(e)
     return e
 
-  def update_entity_x(self,e):
-    e["x"]+=e["dx"]
-    e["dx"]*=e["ix"]
-
-  def update_entity_y(self,e):
-    if e.get("inair",False) or not e["col"]:
-      e["y"]+=e["dy"]
-      e["dy"]=min(e["dy"]+e["g"],13)
-      e["dy"]*=e["iy"]
-
   def update_entity(self,e):
     if e.get("cooldown",0)>0: e["cooldown"]-=1
 
-    self.update_entity_x(e)
+    # inline update_entity_x
+    e["x"]+=e["dx"]
+    e["dx"]*=e["ix"]
+
     if e["col"]:
       d=self.collide_side(e)
       if d is not None:
@@ -1597,8 +1646,14 @@ class pico8():
         if e.get("on_sidecol") is not None: e["on_sidecol"](e)
 
     # store last tile y
-    e["lastty"]=flr((e["y"]+(e["h"]/2)-0.01)/8)
-    self.update_entity_y(e)
+    eh2=e["h"]/2
+    e["lastty"]=flr((e["y"]+eh2-0.01)/8)
+
+    # inline update_entity_y
+    if e.get("inair",False) or not e["col"]:
+      e["y"]+=e["dy"]
+      e["dy"]=min(e["dy"]+e["g"],13)
+      e["dy"]*=e["iy"]
 
     if e["col"]:
       ody=e["dy"]
@@ -1608,35 +1663,37 @@ class pico8():
           e["on_landed"](e)
         e["inair"]=False
       else:
-        if e.get("inair",False)==False and e["dy"]==0:
+        was_on_ground=e.get("inair",False)==False
+        if was_on_ground and e["dy"]==0:
           if self.should_fall(e):
-            if e.get("inair",False)==False and e.get("on_air") is not None:
-              e["on_air"](e)
+            on_air=e.get("on_air")
+            if on_air is not None: on_air(e)
             e["inair"]=True
         else:
-          if e.get("inair",False)==False and e.get("on_air") is not None:
-            e["on_air"](e)
+          if was_on_ground:
+            on_air=e.get("on_air")
+            if on_air is not None: on_air(e)
           e["inair"]=True
 
       if self.collide_roof(e):
-        if e.get("on_roofhit"): e["on_roofhit"](e)
+        on_rh=e.get("on_roofhit")
+        if on_rh: on_rh(e)
 
-    self.update_entity_a(e)
+    # inline update_entity_a
+    e["t"]+=1
+    ef=e["frames"]
+    if ef>0:
+      if e["t"]%e["fs"]==0: e["frame"]+=1
+      if e["frame"]==ef: e["frame"]=0
+    el=e["life"]
+    if el>0 and e["t"]>el:
+      if e in e["tbl"]: e["tbl"].remove(e)
 
     if e.get("bleed_timer",0)>0:
       e["bleed_timer"]-=1
       if chance(0.5): self.bleed(e["x"],e["y"]+4)
       if e["bleed_timer"]<=0 and e.get("health",0)<=0:
         if e in e["tbl"]: e["tbl"].remove(e)
-
-  def update_entity_a(self,e):
-    e["t"]+=1
-    if e["frames"]>0:
-      if e["t"]%e["fs"]==0: e["frame"]+=1
-      if e["frame"]==e["frames"]: e["frame"]=0
-
-    if e["life"]>0 and e["t"]>e["life"]:
-      if e in e["tbl"]: e["tbl"].remove(e)
 
   def draw_entity(self,e):
     spr(e["spr"]+e["frame"]*e["tw"],
@@ -1755,7 +1812,7 @@ game.level=1
 
 game._init()
 
-import gc
+_gc_n=0
 
 while loop:
   if engine.tick():
@@ -1763,4 +1820,7 @@ while loop:
     game._draw()
     if button.MENU.is_just_pressed:
       loop=menu()
-    gc.collect()
+    _gc_n+=1
+    if _gc_n>=3:
+      gc.collect()
+      _gc_n=0
