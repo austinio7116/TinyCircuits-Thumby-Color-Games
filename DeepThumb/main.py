@@ -21,6 +21,13 @@ from engine_math import Vector2
 from engine_nodes import CameraNode, Sprite2DNode
 from engine_resources import TextureResource, WaveSoundResource
 
+# Allocate the 32KB framebuffer FIRST while the heap is empty and
+# unfragmented — chal.py's module-level tables would otherwise leave no
+# contiguous slot big enough for it.
+gc.collect()
+screen_tex = TextureResource(128, 128, 0, 16)
+gc.collect()
+
 import chal
 
 # ===============================================================
@@ -53,10 +60,11 @@ SPRITE_PAWN   = 5
 TRANSPARENT_COLOR = 0xFFFF
 
 # Difficulty
-chal_depth = (2, 4, 6, 64)
-chal_time  = (500, 1500, 3000, 8000)
-chal_elo   = ("~1200", "~1600", "~1900", "~2200")
-diff_names = ("EASY", "MEDIUM", "HARD", "EXPERT")
+chal_depth = (1, 2, 4, 6, 64)
+chal_time  = (200, 500, 1500, 3000, 8000)
+chal_elo   = ("~800", "~1200", "~1600", "~1900", "~2200")
+diff_names = ("BEGINNER", "EASY", "MEDIUM", "HARD", "EXPERT")
+NUM_DIFF   = 5
 
 # Game states
 ST_TITLE       = 0
@@ -88,8 +96,7 @@ snd_move = WaveSoundResource("move.wav")
 snd_take = WaveSoundResource("take.wav")
 snd_pawn = WaveSoundResource("pawn.wav")
 
-# 128x128 RGB565 framebuffer texture, displayed via a Sprite2DNode
-screen_tex = TextureResource(SCREEN_W, SCREEN_H, 0, 16)
+# screen_tex was allocated above, before chal import.
 fbuf = framebuf.FrameBuffer(screen_tex.data, SCREEN_W, SCREEN_H, framebuf.RGB565)
 
 camera = CameraNode()
@@ -746,9 +753,9 @@ def tick_setup():
     draw_text(38, 104, "A: PLAY", COLOR_TEXT_WHITE)
 
     if engine_io.UP.is_just_pressed:
-        game.difficulty = (game.difficulty + 1) % 4
+        game.difficulty = (game.difficulty + 1) % NUM_DIFF
     if engine_io.DOWN.is_just_pressed:
-        game.difficulty = (game.difficulty + 3) % 4
+        game.difficulty = (game.difficulty + NUM_DIFF - 1) % NUM_DIFF
     if engine_io.LEFT.is_just_pressed or engine_io.RIGHT.is_just_pressed \
        or engine_io.LB.is_just_pressed or engine_io.RB.is_just_pressed:
         game.player_is_white = 0 if game.player_is_white else 1
