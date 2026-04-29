@@ -1,1 +1,6 @@
-Thumbalaga - a Galaga-style arcade shooter! Defend against waves of alien invaders in formation. Enemies dive-bomb with increasing aggression across 20+ stages. Shoot them down for points!
+Thumbalaga
+
+Galaga-style arcade shooter.
+Defend against waves of alien invaders that dive-bomb in formation across 20+ stages.
+
+Author: Austinio (early tester)
